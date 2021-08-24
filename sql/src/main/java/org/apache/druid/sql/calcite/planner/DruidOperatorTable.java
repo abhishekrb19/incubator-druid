@@ -77,6 +77,7 @@ import org.apache.druid.sql.calcite.expression.builtin.GreatestOperatorConversio
 import org.apache.druid.sql.calcite.expression.builtin.IPv4AddressMatchOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.IPv4AddressParseOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.IPv4AddressStringifyOperatorConversion;
+import org.apache.druid.sql.calcite.expression.builtin.IPv6AddressStringifyOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.LPadOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.LTrimOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.LeastOperatorConversion;
@@ -250,6 +251,12 @@ public class DruidOperatorTable implements SqlOperatorTable
                    .add(new IPv4AddressStringifyOperatorConversion())
                    .build();
 
+
+  private static final List<SqlOperatorConversion> IPV6ADDRESS_OPERATOR_CONVERSIONS =
+      ImmutableList.<SqlOperatorConversion>builder()
+          .add(new IPv6AddressStringifyOperatorConversion())
+          .build();
+
   private static final List<SqlOperatorConversion> BITWISE_OPERATOR_CONVERSIONS =
       ImmutableList.<SqlOperatorConversion>builder()
                    .add(OperatorConversions.druidBinaryLongFn("BITWISE_AND", "bitwiseAnd"))
@@ -342,6 +349,7 @@ public class DruidOperatorTable implements SqlOperatorTable
                    .addAll(MULTIVALUE_STRING_OPERATOR_CONVERSIONS)
                    .addAll(REDUCTION_OPERATOR_CONVERSIONS)
                    .addAll(IPV4ADDRESS_OPERATOR_CONVERSIONS)
+                   .addAll(IPV6ADDRESS_OPERATOR_CONVERSIONS)
                    .addAll(BITWISE_OPERATOR_CONVERSIONS)
                    .build();
 
