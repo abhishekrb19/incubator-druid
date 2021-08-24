@@ -74,10 +74,7 @@ public class IPv6AddressStringifyExprMacro implements ExprMacroTable.ExprMacro
         return ExprEval.of(null);
     }
 
-    IPv6Address parsedIpv6 = IPv6AddressExprUtils.parse(eval.asString());
-    if (parsedIpv6 == null ) {
-      return ExprEval.of(null);
-    }
-    return ExprEval.of(parsedIpv6.toString());
+    IPv6Address parsedIpv6 = IPv6AddressExprUtils.parseToIPv6Address(eval.asString());
+    return ExprEval.of(IPv6AddressExprUtils.v6AddressToCidrString(parsedIpv6));
   }
 }

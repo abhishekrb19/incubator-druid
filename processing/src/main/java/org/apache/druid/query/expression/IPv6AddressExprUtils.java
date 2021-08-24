@@ -2,6 +2,7 @@ package org.apache.druid.query.expression;
 
 import inet.ipaddr.IPAddressString;
 import inet.ipaddr.ipv6.IPv6Address;
+import org.apache.druid.math.expr.ExprEval;
 
 import javax.annotation.Nullable;
 import java.math.BigInteger;
@@ -25,7 +26,7 @@ public class IPv6AddressExprUtils
   }
 
   @Nullable
-  static IPv6Address parse(@Nullable String string)
+  static IPv6Address parseToIPv6Address(@Nullable String string)
   {
     if (string == null) {
       return null;
@@ -49,18 +50,21 @@ public class IPv6AddressExprUtils
    * @return IPv6 address dotted-decimal notated string
    */
 
-  // Maybe don't support this yet. Or two longs.
-  static IPv6Address parse(BigInteger address) {
-    return new IPv6Address(address);
-  }
-
-  static String toString(IPv6Address address)
+  @Nullable
+  static String v6AddressToCidrString(IPv6Address address)
   {
+    if (address == null) {
+      return null;
+    }
     return address.toString();
   }
 
-  static BigInteger toBigInteger(IPv6Address address)
+  @Nullable
+  static String v6AddressToNumericString(IPv6Address address)
   {
-    return address.getValue();
+    if (address == null) {
+      return null;
+    }
+    return address.getValue().toString();
   }
 }

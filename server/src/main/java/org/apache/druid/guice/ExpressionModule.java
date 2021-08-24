@@ -31,6 +31,7 @@ import org.apache.druid.query.expression.GuiceExprMacroTable;
 import org.apache.druid.query.expression.IPv4AddressMatchExprMacro;
 import org.apache.druid.query.expression.IPv4AddressParseExprMacro;
 import org.apache.druid.query.expression.IPv4AddressStringifyExprMacro;
+import org.apache.druid.query.expression.IPv6AddressParseExprMacro;
 import org.apache.druid.query.expression.IPv6AddressStringifyExprMacro;
 import org.apache.druid.query.expression.LikeExprMacro;
 import org.apache.druid.query.expression.RegexpExtractExprMacro;
@@ -52,6 +53,7 @@ public class ExpressionModule implements DruidModule
           .add(IPv4AddressMatchExprMacro.class)
           .add(IPv4AddressParseExprMacro.class)
           .add(IPv4AddressStringifyExprMacro.class)
+          .add(IPv6AddressParseExprMacro.class)
           .add(IPv6AddressStringifyExprMacro.class)
           .add(LikeExprMacro.class)
           .add(RegexpExtractExprMacro.class)
