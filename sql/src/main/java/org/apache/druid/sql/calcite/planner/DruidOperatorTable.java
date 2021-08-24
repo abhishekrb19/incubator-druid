@@ -42,6 +42,7 @@ import org.apache.druid.sql.calcite.aggregation.builtin.EarliestLatestAnySqlAggr
 import org.apache.druid.sql.calcite.aggregation.builtin.GroupingSqlAggregator;
 import org.apache.druid.sql.calcite.aggregation.builtin.MaxSqlAggregator;
 import org.apache.druid.sql.calcite.aggregation.builtin.MinSqlAggregator;
+import org.apache.druid.sql.calcite.aggregation.builtin.StringSqlAggregator;
 import org.apache.druid.sql.calcite.aggregation.builtin.SumSqlAggregator;
 import org.apache.druid.sql.calcite.aggregation.builtin.SumZeroSqlAggregator;
 import org.apache.druid.sql.calcite.expression.AliasedOperatorConversion;
@@ -74,6 +75,7 @@ import org.apache.druid.sql.calcite.expression.builtin.DateTruncOperatorConversi
 import org.apache.druid.sql.calcite.expression.builtin.ExtractOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.FloorOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.GreatestOperatorConversion;
+import org.apache.druid.sql.calcite.expression.builtin.HumanReadableFormatOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.IPv4AddressMatchOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.IPv4AddressParseOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.IPv4AddressStringifyOperatorConversion;
@@ -98,6 +100,7 @@ import org.apache.druid.sql.calcite.expression.builtin.RepeatOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.ReverseOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.RightOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.RoundOperatorConversion;
+import org.apache.druid.sql.calcite.expression.builtin.SleepOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.StringFormatOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.StringToArrayOperatorConversion;
 import org.apache.druid.sql.calcite.expression.builtin.StrposOperatorConversion;
@@ -140,6 +143,7 @@ public class DruidOperatorTable implements SqlOperatorTable
                    .add(new SumZeroSqlAggregator())
                    .add(new GroupingSqlAggregator())
                    .add(new ArraySqlAggregator())
+                   .add(new StringSqlAggregator())
                    .add(new BitwiseSqlAggregator(BitwiseSqlAggregator.Op.AND))
                    .add(new BitwiseSqlAggregator(BitwiseSqlAggregator.Op.OR))
                    .add(new BitwiseSqlAggregator(BitwiseSqlAggregator.Op.XOR))
@@ -168,6 +172,7 @@ public class DruidOperatorTable implements SqlOperatorTable
                    .add(new TimeParseOperatorConversion())
                    .add(new TimeShiftOperatorConversion())
                    .add(new TimestampToMillisOperatorConversion())
+                   .add(new SleepOperatorConversion())
                    .build();
 
   private static final List<SqlOperatorConversion> STRING_OPERATOR_CONVERSIONS =
@@ -252,14 +257,20 @@ public class DruidOperatorTable implements SqlOperatorTable
                    .add(new IPv4AddressParseOperatorConversion())
                    .add(new IPv4AddressStringifyOperatorConversion())
                    .build();
-
-
+  
   private static final List<SqlOperatorConversion> IPV6ADDRESS_OPERATOR_CONVERSIONS =
       ImmutableList.<SqlOperatorConversion>builder()
           .add(new IPv6AddressMatchOperatorConversion())
           .add(new IPv6AddressParseOperatorConversion())
           .add(new IPv6AddressStringifyOperatorConversion())
           .build();
+
+  private static final List<SqlOperatorConversion> FORMAT_OPERATOR_CONVERSIONS =
+      ImmutableList.<SqlOperatorConversion>builder()
+                   .add(HumanReadableFormatOperatorConversion.BINARY_BYTE_FORMAT)
+                   .add(HumanReadableFormatOperatorConversion.DECIMAL_BYTE_FORMAT)
+                   .add(HumanReadableFormatOperatorConversion.DECIMAL_FORMAT)
+                   .build();
 
   private static final List<SqlOperatorConversion> BITWISE_OPERATOR_CONVERSIONS =
       ImmutableList.<SqlOperatorConversion>builder()
@@ -354,6 +365,7 @@ public class DruidOperatorTable implements SqlOperatorTable
                    .addAll(REDUCTION_OPERATOR_CONVERSIONS)
                    .addAll(IPV4ADDRESS_OPERATOR_CONVERSIONS)
                    .addAll(IPV6ADDRESS_OPERATOR_CONVERSIONS)
+                   .addAll(FORMAT_OPERATOR_CONVERSIONS)
                    .addAll(BITWISE_OPERATOR_CONVERSIONS)
                    .build();
 
