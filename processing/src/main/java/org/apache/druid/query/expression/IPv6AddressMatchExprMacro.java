@@ -107,8 +107,6 @@ public class IPv6AddressMatchExprMacro implements ExprMacroTable.ExprMacro
           return false;
         }
         return subnetInfo.contains(iPv6Address.toAddressString());
-//        Assert.assertTrue(new IPAddressString("::/0").contains(ipv6Address.toAddressString()));
-//        return IPv4AddressExprUtils.isValidAddress(stringValue) && subnetInfo.isInRange(stringValue);
       }
 
       @Override

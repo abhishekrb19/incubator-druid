@@ -135,7 +135,7 @@
         <module>sql</module>
         <module>services</module>
         <module>integration-tests</module>
-        <module>benchmarks</module>
+        <!-- <module>benchmarks</module> -->
         <module>extendedset</module>
         <module>hll</module>
         <module>web-console</module>
@@ -1499,6 +1499,7 @@
                 <version>6.0.3</version>
                 <inherited>false</inherited>
                 <configuration>
+                    <skip>true</skip>
                     <failBuildOnCVSS>7</failBuildOnCVSS>
                     <skipProvidedScope>true</skipProvidedScope>
                     <skipSystemScope>true</skipSystemScope>  <!-- avoid error when processing jdk.tools:jdk.tools:jar:1.8:system -->
