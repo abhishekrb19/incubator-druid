@@ -78,6 +78,7 @@ import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.common.parsers.CloseableIterator;
+import org.apache.druid.java.util.common.parsers.ParseException;
 import org.apache.druid.java.util.emitter.EmittingLogger;
 import org.apache.druid.java.util.emitter.core.NoopEmitter;
 import org.apache.druid.java.util.emitter.service.ServiceEmitter;
@@ -180,7 +181,8 @@ public class KafkaIndexTaskTest extends SeekableStreamIndexTaskTestBase
   private static int topicPostfix;
 
   static final Module TEST_MODULE = new SimpleModule("kafkaTestModule").registerSubtypes(
-      new NamedType(TestKafkaInputFormat.class, "testKafkaInputFormat")
+      new NamedType(TestKafkaInputFormat.class, "testKafkaInputFormat"),
+      new NamedType(TestKafkaInputFormatParseException.class, "testKafkaInputFormatException")
   );
 
   static {
@@ -2996,6 +2998,53 @@ public class KafkaIndexTaskTest extends SeekableStreamIndexTaskTestBase
     );
   }
 
+  @Test(timeout = 60_000L)
+  public void testIteratorParseExceptionSuccess() throws Exception
+  {
+    reportParseExceptions = false;
+    maxParseExceptions = 1000;
+    maxSavedParseExceptions = 2;
+
+    // Prepare records and insert data
+    records = Collections.singletonList(
+        new ProducerRecord<>(topic, 0, null, StringUtils.toUtf8("dfd"))
+    );
+    insertData();
+
+    final KafkaIndexTask task = createTask(
+        null,
+        new KafkaIndexTaskIOConfig(
+            0,
+            "sequence0",
+            new SeekableStreamStartSequenceNumbers<>(topic, ImmutableMap.of(0, 0L), ImmutableSet.of()),
+            new SeekableStreamEndSequenceNumbers<>(topic, ImmutableMap.of(0, 1L)),
+            kafkaServer.consumerProperties(),
+            KafkaSupervisorIOConfig.DEFAULT_POLL_TIMEOUT_MILLIS,
+            true,
+            null,
+            null,
+            new TestKafkaInputFormatParseException(INPUT_FORMAT),
+            null
+        )
+    );
+
+    final ListenableFuture<TaskStatus> future = runTask(task);
+
+    // Wait for task to exit
+    Assert.assertEquals(TaskState.SUCCESS, future.get().getStatusCode());
+    verifyTaskMetrics(task, RowMeters.with().bytes(getTotalSizeOfRecords(0, 1)).unparseable(1).totalProcessed(0));
+
+    IngestionStatsAndErrorsTaskReportData reportData = getTaskReportData();
+
+    ParseExceptionReport parseExceptionReport =
+        ParseExceptionReport.forPhase(reportData, RowIngestionMeters.BUILD_SEGMENTS);
+
+    List<String> expectedMessages = Collections.singletonList(
+        "Unable to parse bad data during iterator construction"
+    );
+    Assert.assertEquals(expectedMessages, parseExceptionReport.getErrorMessages());
+  }
+
   public static class TestKafkaInputFormat implements InputFormat
   {
     final InputFormat baseInputFormat;
@@ -3040,6 +3089,49 @@ public class KafkaIndexTaskTest extends SeekableStreamIndexTaskTestBase
                 return new MapBasedInputRow(row.getTimestamp(), row.getDimensions(), event);
               }
           );
+        }
+
+        @Override
+        public CloseableIterator<InputRowListPlusRawValues> sample() throws IOException
+        {
+          return delegate.sample();
+        }
+      };
+    }
+
+    @JsonProperty
+    public InputFormat getBaseInputFormat()
+    {
+      return baseInputFormat;
+    }
+  }
+
+  public static class TestKafkaInputFormatParseException implements InputFormat
+  {
+    final InputFormat baseInputFormat;
+
+    @JsonCreator
+    public TestKafkaInputFormatParseException(@JsonProperty("baseInputFormat") InputFormat baseInputFormat)
+    {
+      this.baseInputFormat = baseInputFormat;
+    }
+
+    @Override
+    public boolean isSplittable()
+    {
+      return false;
+    }
+
+    @Override
+    public InputEntityReader createReader(InputRowSchema inputRowSchema, InputEntity source, File temporaryDirectory)
+    {
+      final InputEntityReader delegate = baseInputFormat.createReader(inputRowSchema, source, temporaryDirectory);
+      return new InputEntityReader()
+      {
+        @Override
+        public CloseableIterator<InputRow> read()
+        {
+          throw new ParseException(null, "Unable to parse bad data during iterator construction");
         }
 
         @Override
