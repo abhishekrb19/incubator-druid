@@ -182,7 +182,7 @@ public class KafkaIndexTaskTest extends SeekableStreamIndexTaskTestBase
 
   static final Module TEST_MODULE = new SimpleModule("kafkaTestModule").registerSubtypes(
       new NamedType(TestKafkaInputFormat.class, "testKafkaInputFormat"),
-      new NamedType(TestKafkaInputFormatParseException.class, "testKafkaInputFormatException")
+      new NamedType(TestKafkaFormatWithMalformedDataDetection.class, "testKafkaFormatWithMalformedDataDetection")
   );
 
   static {
@@ -2999,15 +2999,26 @@ public class KafkaIndexTaskTest extends SeekableStreamIndexTaskTestBase
   }
 
   @Test(timeout = 60_000L)
-  public void testIteratorParseExceptionSuccess() throws Exception
+  public void testParseExceptionsInIteratorConstructionSuccess() throws Exception
   {
     reportParseExceptions = false;
-    maxParseExceptions = 1000;
+    maxParseExceptions = 2;
     maxSavedParseExceptions = 2;
 
     // Prepare records and insert data
-    records = Collections.singletonList(
-        new ProducerRecord<>(topic, 0, null, StringUtils.toUtf8("dfd"))
+    records = Arrays.asList(
+      new ProducerRecord<byte[], byte[]>(topic, 0, null,
+                                         jbb("2049", "a", "y", "10", "20.0", "1.0"),
+                                         SAMPLE_HEADERS),
+      new ProducerRecord<byte[], byte[]>(topic, 0, null,
+                                         jbb("200", TestKafkaFormatWithMalformedDataDetection.MALFORMED_KEY, "y", "10", "20.0", "1.0"),
+                                         SAMPLE_HEADERS),
+      new ProducerRecord<byte[], byte[]>(topic, 0, null,
+                                         jbb("2009", TestKafkaFormatWithMalformedDataDetection.MALFORMED_KEY, "y", "10", "20.0", "1.0"),
+                                         SAMPLE_HEADERS),
+      new ProducerRecord<byte[], byte[]>(topic, 0, null,
+                                         jbb("2049", "b", "y", "10", "21.0", "1.0"),
+                                         SAMPLE_HEADERS)
     );
     insertData();
 
@@ -3017,30 +3028,46 @@ public class KafkaIndexTaskTest extends SeekableStreamIndexTaskTestBase
             0,
             "sequence0",
             new SeekableStreamStartSequenceNumbers<>(topic, ImmutableMap.of(0, 0L), ImmutableSet.of()),
-            new SeekableStreamEndSequenceNumbers<>(topic, ImmutableMap.of(0, 1L)),
+            new SeekableStreamEndSequenceNumbers<>(topic, ImmutableMap.of(0, 4L)),
             kafkaServer.consumerProperties(),
             KafkaSupervisorIOConfig.DEFAULT_POLL_TIMEOUT_MILLIS,
             true,
             null,
             null,
-            new TestKafkaInputFormatParseException(INPUT_FORMAT),
+            new TestKafkaFormatWithMalformedDataDetection(INPUT_FORMAT),
             null
         )
     );
 
+    Assert.assertTrue(task.supportsQueries());
     final ListenableFuture<TaskStatus> future = runTask(task);
 
     // Wait for task to exit
     Assert.assertEquals(TaskState.SUCCESS, future.get().getStatusCode());
-    verifyTaskMetrics(task, RowMeters.with().bytes(getTotalSizeOfRecords(0, 1)).unparseable(1).totalProcessed(0));
+    verifyTaskMetrics(task, RowMeters.with().bytes(getTotalSizeOfRecords(0, 4)).unparseable(2).totalProcessed(2));
 
+    // Check published metadata
+    assertEqualsExceptVersion(
+        ImmutableList.of(
+            // 2 rows at last in druid
+            sdd("2049/P1D", 0, ImmutableList.of("a", "b"))
+        ),
+        publishedDescriptors()
+    );
+    Assert.assertEquals(
+        new KafkaDataSourceMetadata(new SeekableStreamEndSequenceNumbers<>(topic, ImmutableMap.of(0, 4L))),
+        newDataSchemaMetadata()
+    );
+
+    // Verify unparseable data
     IngestionStatsAndErrorsTaskReportData reportData = getTaskReportData();
 
     ParseExceptionReport parseExceptionReport =
         ParseExceptionReport.forPhase(reportData, RowIngestionMeters.BUILD_SEGMENTS);
 
-    List<String> expectedMessages = Collections.singletonList(
-        "Unable to parse bad data during iterator construction"
+    List<String> expectedMessages = Arrays.asList(
+        "Unable to parse malformed data during iterator construction",
+        "Unable to parse malformed data during iterator construction"
     );
     Assert.assertEquals(expectedMessages, parseExceptionReport.getErrorMessages());
   }
@@ -3106,12 +3133,17 @@ public class KafkaIndexTaskTest extends SeekableStreamIndexTaskTestBase
     }
   }
 
-  public static class TestKafkaInputFormatParseException implements InputFormat
+  /**
+   * This test class is a kafka input format that throws a {@link ParseException} when it encounters a malformed value
+   * in its input as part of the iterator construction. This should be used only for testing purposes.
+   */
+  public static class TestKafkaFormatWithMalformedDataDetection implements InputFormat
   {
+    public static final String MALFORMED_KEY = "malformed";
     final InputFormat baseInputFormat;
 
     @JsonCreator
-    public TestKafkaInputFormatParseException(@JsonProperty("baseInputFormat") InputFormat baseInputFormat)
+    public TestKafkaFormatWithMalformedDataDetection(@JsonProperty("baseInputFormat") InputFormat baseInputFormat)
     {
       this.baseInputFormat = baseInputFormat;
     }
@@ -3126,12 +3158,37 @@ public class KafkaIndexTaskTest extends SeekableStreamIndexTaskTestBase
     public InputEntityReader createReader(InputRowSchema inputRowSchema, InputEntity source, File temporaryDirectory)
     {
       final InputEntityReader delegate = baseInputFormat.createReader(inputRowSchema, source, temporaryDirectory);
+      final SettableByteEntity<KafkaRecordEntity> settableByteEntity = (SettableByteEntity<KafkaRecordEntity>) source;
+
       return new InputEntityReader()
       {
         @Override
-        public CloseableIterator<InputRow> read()
+        public CloseableIterator<InputRow> read() throws IOException
         {
-          throw new ParseException(null, "Unable to parse bad data during iterator construction");
+          KafkaRecordEntity recordEntity = settableByteEntity.getEntity();
+          return delegate.read().map(
+              r -> {
+
+                MapBasedInputRow row = (MapBasedInputRow) r;
+                final Map<String, Object> event = new HashMap<>(row.getEvent());
+
+                if (event.containsValue(MALFORMED_KEY)) {
+                  // Then throw an exception
+                  throw new ParseException(null, "Unable to parse malformed data during iterator construction");
+                }
+                event.put("kafka.offset", recordEntity.getRecord().offset());
+                event.put("kafka.topic", recordEntity.getRecord().topic());
+                event.put(
+                    "kafka.header.encoding",
+                    new String(
+                        recordEntity.getRecord().headers().lastHeader("encoding").value(),
+                        StandardCharsets.UTF_8
+                    )
+                );
+
+                return new MapBasedInputRow(row.getTimestamp(), row.getDimensions(), event);
+              }
+          );
         }
 
         @Override
