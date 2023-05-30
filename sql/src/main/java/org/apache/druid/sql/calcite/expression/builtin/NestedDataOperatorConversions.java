@@ -428,7 +428,7 @@ public class NestedDataOperatorConversions
       return OperatorConversions.operatorBuilder(functionName)
                                 .operandTypeChecker(
                                     OperandTypes.sequence(
-                                        StringUtils.format(functionName + "(expr,path)"),
+                                        functionName + "(expr,path)",
                                         OperandTypes.family(SqlTypeFamily.ANY),
                                         OperandTypes.family(SqlTypeFamily.STRING)
                                     )
