@@ -752,6 +752,49 @@ public class DruidMeta extends MetaImpl
     }
   }
 
+  @Override
+  public MetaResultSet getProcedures(
+      final ConnectionHandle ch,
+      final String catalog,
+      final Pat schemaPattern,
+      final Pat procedureNamePattern
+  )
+  {
+    try {
+      final List<String> whereBuilder = new ArrayList<>();
+      if (catalog != null) {
+        whereBuilder.add("TABLES.ROUTINE_CATALOG = " + Calcites.escapeStringLiteral(catalog));
+      }
+
+      if (schemaPattern.s != null) {
+        whereBuilder.add("ROUTINES.ROUTINE_SCHEMA LIKE " + withEscapeClause(schemaPattern.s));
+      }
+
+      if (procedureNamePattern.s != null) {
+        whereBuilder.add("ROUTINES.ROUTINE_NAME LIKE " + withEscapeClause(procedureNamePattern.s));
+      }
+
+      final String where = whereBuilder.isEmpty() ? "" : "WHERE " + Joiner.on(" AND ").join(whereBuilder);
+      final String sql = "SELECT\n"
+                         + "  ROUTINE_CATALOG AS PROCEDURE_CAT,\n"
+                         + "  ROUTINE_SCHEMA AS PROCEDURE_SCHEM,\n"
+                         + "  ROUTINE_NAME AS PROCEDURE_NAME,\n"
+                         + "  CAST(NULL AS VARCHAR) AS REMARKS,\n"
+                         + "  -1 AS PROCEDURE_TYPE,\n"
+                         + "  ROUTINE_NAME AS SPECIFIC_NAME\n"
+                         + "FROM\n"
+                         + "  INFORMATION_SCHEMA.ROUTINES\n"
+                         + where + "\n"
+                         + "ORDER BY\n"
+                         + "  PROCEDURE_CAT, PROCEDURE_SCHEM, PROCEDURE_NAME, SPECIFIC_NAME\n";
+
+      return sqlResultSet(ch, sql);
+    }
+    catch (Throwable t) {
+      throw mapException(t);
+    }
+  }
+
   @VisibleForTesting
   void closeAllConnections()
   {

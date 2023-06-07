@@ -819,6 +819,29 @@ public class DruidAvaticaHandlerTest extends CalciteTestBase
     );
   }
 
+
+  @Test
+  public void testDatabaseMetaDataProceduresWithSuperuser() throws SQLException
+  {
+    final DatabaseMetaData metaData = client.getMetaData();
+    Assert.assertEquals(
+        ImmutableList.of(
+            row(
+                Pair.of("PROCEDURE_CAT", "druid"),
+                Pair.of("PROCEDURE_SCHEM", "INFORMATION_SCHEMA"),
+                Pair.of("PROCEDURE_NAME", "COUNT"),
+                Pair.of("REMARKS", "placeholder stuff"),
+                Pair.of("PROCEDURE_TYPE", "FUNCTION"),
+                Pair.of("SPECIFIC_NAME", "NO")
+            )
+        ),
+        getRows(
+            metaData.getProcedures(null, "druid", null),
+            ImmutableSet.of("PROCEDURE_CAT", "PROCEDURE_SCHEM", "PROCEDURE_NAME", "REMARKS", "PROCEDURE_TYPE", "SPECIFIC_NAME")
+        )
+    );
+  }
+
   @Test(timeout = 90_000L)
   public void testConcurrentQueries() throws InterruptedException, ExecutionException
   {
