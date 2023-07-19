@@ -24,6 +24,7 @@ import org.apache.druid.server.coordination.DruidServerMetadata;
 import org.apache.druid.timeline.DataSegment;
 
 import javax.annotation.Nullable;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -37,10 +38,11 @@ public class AvailableSegmentMetadata
       long isRealtime,
       Set<DruidServerMetadata> segmentServers,
       RowSignature rowSignature,
-      long numRows
+      long numRows,
+      Map<String, AggregatorSummary> aggregatorSummary
   )
   {
-    return new Builder(segment, isRealtime, segmentServers, rowSignature, numRows);
+    return new Builder(segment, isRealtime, segmentServers, rowSignature, numRows, aggregatorSummary);
   }
 
   public static Builder from(AvailableSegmentMetadata h)
@@ -50,7 +52,8 @@ public class AvailableSegmentMetadata
         h.isRealtime(),
         h.getReplicas(),
         h.getRowSignature(),
-        h.getNumRows()
+        h.getNumRows(),
+        h.getAggregatorsSummary()
     );
   }
 
@@ -64,6 +67,9 @@ public class AvailableSegmentMetadata
   @Nullable
   private final RowSignature rowSignature;
 
+  @Nullable
+  private final Map<String, AggregatorSummary> aggregatorsSummary;
+
   private AvailableSegmentMetadata(Builder builder)
   {
     this.rowSignature = builder.rowSignature;
@@ -71,6 +77,7 @@ public class AvailableSegmentMetadata
     this.segmentServers = builder.segmentServers;
     this.numRows = builder.numRows;
     this.segment = builder.segment;
+    this.aggregatorsSummary = builder.aggregatorsSummary;
   }
 
   public long isRealtime()
@@ -104,6 +111,13 @@ public class AvailableSegmentMetadata
     return rowSignature;
   }
 
+  @Nullable
+  public Map<String, AggregatorSummary> getAggregatorsSummary()
+  {
+    return aggregatorsSummary;
+  }
+
+
   public static class Builder
   {
     private final DataSegment segment;
@@ -114,12 +128,16 @@ public class AvailableSegmentMetadata
     private RowSignature rowSignature;
     private long numRows;
 
+    @Nullable
+    private Map<String, AggregatorSummary> aggregatorsSummary;
+
     private Builder(
         DataSegment segment,
         long isRealtime,
         Set<DruidServerMetadata> servers,
         @Nullable RowSignature rowSignature,
-        long numRows
+        long numRows,
+        @Nullable Map<String, AggregatorSummary> aggregatorsSummary
     )
     {
       this.segment = segment;
@@ -127,11 +145,18 @@ public class AvailableSegmentMetadata
       this.segmentServers = servers;
       this.rowSignature = rowSignature;
       this.numRows = numRows;
+      this.aggregatorsSummary = aggregatorsSummary;
     }
 
     public Builder withRowSignature(RowSignature rowSignature)
     {
       this.rowSignature = rowSignature;
+      return this;
+    }
+
+    public Builder withAggregatorsSummary(@Nullable Map<String, AggregatorSummary> aggregatorsSummary)
+    {
+      this.aggregatorsSummary = aggregatorsSummary;
       return this;
     }
 

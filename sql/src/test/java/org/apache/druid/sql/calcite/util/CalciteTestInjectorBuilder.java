@@ -26,6 +26,7 @@ import org.apache.druid.initialization.CoreInjectorBuilder;
 import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.expression.TestExprMacroTable;
 import org.apache.druid.sql.calcite.aggregation.SqlAggregationModule;
+import org.apache.druid.sql.calcite.planner.SegmentMetadataCacheConfig;
 import org.apache.druid.sql.calcite.util.testoperator.CalciteTestOperatorModule;
 
 /**
@@ -51,6 +52,14 @@ public class CalciteTestInjectorBuilder extends CoreInjectorBuilder
   {
     addModule(binder ->
         binder.bind(ExprMacroTable.class).toInstance(TestExprMacroTable.INSTANCE)
+    );
+    return this;
+  }
+
+  public CalciteTestInjectorBuilder withDefaultSegmentMetadataCacheConfig(final SegmentMetadataCacheConfig config)
+  {
+    addModule(binder ->
+                  binder.bind(SegmentMetadataCacheConfig.class).toInstance(config)
     );
     return this;
   }

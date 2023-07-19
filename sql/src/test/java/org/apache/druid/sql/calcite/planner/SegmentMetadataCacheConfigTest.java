@@ -52,6 +52,7 @@ public class SegmentMetadataCacheConfigTest
     Assert.assertEquals(Period.minutes(1), config.getMetadataRefreshPeriod());
     Assert.assertEquals(60_000, config.getMetadataSegmentPollPeriod());
     Assert.assertEquals(new SegmentMetadataCache.LeastRestrictiveTypeMergePolicy(), config.getMetadataColumnTypeMergePolicy());
+    Assert.assertFalse(config.isAggregatorSummaryCacheEnabled());
   }
 
   @Test
@@ -71,6 +72,7 @@ public class SegmentMetadataCacheConfigTest
     properties.setProperty(CalcitePlannerModule.CONFIG_BASE + ".metadataSegmentPollPeriod", "15000");
     properties.setProperty(CalcitePlannerModule.CONFIG_BASE + ".metadataSegmentCacheEnable", "true");
     properties.setProperty(CalcitePlannerModule.CONFIG_BASE + ".awaitInitializationOnStart", "false");
+    properties.setProperty(CalcitePlannerModule.CONFIG_BASE + ".aggregatorSummaryCacheEnable", "true");
     provider.inject(properties, injector.getInstance(JsonConfigurator.class));
     final SegmentMetadataCacheConfig config = provider.get();
     Assert.assertFalse(config.isAwaitInitializationOnStart());
@@ -81,6 +83,7 @@ public class SegmentMetadataCacheConfigTest
         new SegmentMetadataCache.FirstTypeMergePolicy(),
         config.getMetadataColumnTypeMergePolicy()
     );
+    Assert.assertTrue(config.isAggregatorSummaryCacheEnabled());
   }
 
   private Injector createInjector()

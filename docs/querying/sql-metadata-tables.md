@@ -97,11 +97,11 @@ WHERE "TABLE_SCHEMA" = 'druid' AND "TABLE_NAME" = 'foo'
 |CHARACTER_SET_NAME|VARCHAR||
 |COLLATION_NAME|VARCHAR||
 |JDBC_TYPE|BIGINT|Type code from java.sql.Types (Druid extension)|
-
+|AGGREGATOR_TYPE|VARCHAR|The type of aggregator for the table column (Druid extension)|
 For example, this query returns [data type](sql-data-types.md) information for columns in the `foo` table:
 
 ```sql
-SELECT "ORDINAL_POSITION", "COLUMN_NAME", "IS_NULLABLE", "DATA_TYPE", "JDBC_TYPE"
+SELECT "ORDINAL_POSITION", "COLUMN_NAME", "IS_NULLABLE", "DATA_TYPE", "JDBC_TYPE", "AGGREGATOR_TYPE"
 FROM INFORMATION_SCHEMA.COLUMNS
 WHERE "TABLE_NAME" = 'foo'
 ```

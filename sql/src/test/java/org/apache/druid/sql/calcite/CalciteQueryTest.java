@@ -259,7 +259,7 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
   {
     notMsqCompatible();
     testQuery(
-        "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE\n"
+        "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, AGGREGATOR_TYPE\n"
         + "FROM INFORMATION_SCHEMA.COLUMNS\n"
         + "WHERE TABLE_SCHEMA = 'druid' AND TABLE_NAME = 'forbiddenDatasource'",
         ImmutableList.of(),
@@ -268,19 +268,19 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
 
     testQuery(
         PLANNER_CONFIG_DEFAULT,
-        "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE\n"
+        "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, AGGREGATOR_TYPE\n"
         + "FROM INFORMATION_SCHEMA.COLUMNS\n"
         + "WHERE TABLE_SCHEMA = 'druid' AND TABLE_NAME = 'forbiddenDatasource'",
         CalciteTests.SUPER_USER_AUTH_RESULT,
         ImmutableList.of(),
         ImmutableList.of(
-            new Object[]{"__time", "TIMESTAMP", "NO"},
-            new Object[]{"dim1", "VARCHAR", "YES"},
-            new Object[]{"dim2", "VARCHAR", "YES"},
-            new Object[]{"cnt", "BIGINT", useDefault ? "NO" : "YES"},
-            new Object[]{"m1", "FLOAT", useDefault ? "NO" : "YES"},
-            new Object[]{"m2", "DOUBLE", useDefault ? "NO" : "YES"},
-            new Object[]{"unique_dim1", "COMPLEX<hyperUnique>", "YES"}
+            new Object[]{"__time", "TIMESTAMP", "NO", null},
+            new Object[]{"dim1", "VARCHAR", "YES", null},
+            new Object[]{"dim2", "VARCHAR", "YES", null},
+            new Object[]{"cnt", "BIGINT", useDefault ? "NO" : "YES", null},
+            new Object[]{"m1", "FLOAT", useDefault ? "NO" : "YES", null},
+            new Object[]{"m2", "DOUBLE", useDefault ? "NO" : "YES", null},
+            new Object[]{"unique_dim1", "COMPLEX<hyperUnique>", "YES", null}
         )
     );
   }
@@ -290,12 +290,33 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
   {
     notMsqCompatible();
     testQuery(
-        "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE\n"
+        "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, AGGREGATOR_TYPE\n"
         + "FROM INFORMATION_SCHEMA.COLUMNS\n"
         + "WHERE TABLE_SCHEMA = 'view' AND TABLE_NAME = 'aview'",
         ImmutableList.of(),
         ImmutableList.of(
-            new Object[]{"dim1_firstchar", "VARCHAR", "YES"}
+            new Object[]{"dim1_firstchar", "VARCHAR", "YES", null}
+        )
+    );
+  }
+
+  @Test
+  public void testInformationSchemaColumnsOnDataSource()
+  {
+    notMsqCompatible();
+    testQuery(
+        PLANNER_CONFIG_DEFAULT,
+        "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, AGGREGATOR_TYPE\n"
+        + "FROM INFORMATION_SCHEMA.COLUMNS\n"
+        + "WHERE TABLE_SCHEMA = 'druid' AND TABLE_NAME = 'somexdatasource'",
+        CalciteTests.SUPER_USER_AUTH_RESULT,
+        ImmutableList.of(),
+        ImmutableList.of(
+            new Object[]{"__time", "TIMESTAMP", "NO", null},
+            new Object[]{"cnt_x", "BIGINT", useDefault ? "NO" : "YES", null},
+            new Object[]{"m1_x", "FLOAT", useDefault ? "NO" : "YES", null},
+            new Object[]{"m2_x", "DOUBLE", useDefault ? "NO" : "YES", null},
+            new Object[]{"unique_dim1_x", "COMPLEX<hyperUnique>", "YES", null}
         )
     );
   }
@@ -305,14 +326,14 @@ public class CalciteQueryTest extends BaseCalciteQueryTest
   {
     notMsqCompatible();
     testQuery(
-        "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE\n"
+        "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, AGGREGATOR_TYPE\n"
         + "FROM INFORMATION_SCHEMA.COLUMNS\n"
         + "WHERE TABLE_SCHEMA = 'view' AND TABLE_NAME = 'cview'",
         ImmutableList.of(),
         ImmutableList.of(
-            new Object[]{"dim1_firstchar", "VARCHAR", "YES"},
-            new Object[]{"dim2", "VARCHAR", "YES"},
-            new Object[]{"l2", "BIGINT", useDefault ? "NO" : "YES"}
+            new Object[]{"dim1_firstchar", "VARCHAR", "YES", null},
+            new Object[]{"dim2", "VARCHAR", "YES", null},
+            new Object[]{"l2", "BIGINT", useDefault ? "NO" : "YES", null}
         )
     );
   }

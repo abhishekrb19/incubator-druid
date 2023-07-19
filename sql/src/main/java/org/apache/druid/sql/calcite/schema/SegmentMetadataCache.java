@@ -20,6 +20,7 @@
 package org.apache.druid.sql.calcite.schema;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -37,6 +38,7 @@ import org.apache.druid.client.BrokerInternalQueryConfig;
 import org.apache.druid.client.ServerView;
 import org.apache.druid.client.TimelineServerView;
 import org.apache.druid.guice.ManageLifecycle;
+import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.IAE;
 import org.apache.druid.java.util.common.ISE;
@@ -53,6 +55,8 @@ import org.apache.druid.query.DruidMetrics;
 import org.apache.druid.query.GlobalTableDataSource;
 import org.apache.druid.query.QueryContexts;
 import org.apache.druid.query.TableDataSource;
+import org.apache.druid.query.aggregation.AggregatorFactory;
+import org.apache.druid.query.metadata.metadata.AggregatorMergeStrategy;
 import org.apache.druid.query.metadata.metadata.AllColumnIncluderator;
 import org.apache.druid.query.metadata.metadata.ColumnAnalysis;
 import org.apache.druid.query.metadata.metadata.SegmentAnalysis;
@@ -77,6 +81,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -114,6 +119,7 @@ public class SegmentMetadataCache
   private static final int MAX_SEGMENTS_PER_QUERY = 15000;
   private static final long DEFAULT_NUM_ROWS = 0;
   private static final Interner<RowSignature> ROW_SIGNATURE_INTERNER = Interners.newWeakInterner();
+  private static final Interner<Map<String, AggregatorSummary>> AGGREGATOR_SUMMARY_FACTORY_INTERNER = Interners.newWeakInterner();
   private final QueryLifecycleFactory queryLifecycleFactory;
   private final SegmentMetadataCacheConfig config;
   // Escalator, so we can attach an authentication result to queries we generate.
@@ -124,6 +130,7 @@ public class SegmentMetadataCache
   private final ExecutorService callbackExec;
   private final ServiceEmitter emitter;
   private final ColumnTypeMergePolicy columnTypeMergePolicy;
+  private final boolean aggregatorSummaryCacheEnable;
 
   /**
    * Map of DataSource -> DruidTable.
@@ -237,6 +244,7 @@ public class SegmentMetadataCache
     this.joinableFactory = joinableFactory;
     this.config = Preconditions.checkNotNull(config, "config");
     this.columnTypeMergePolicy = config.getMetadataColumnTypeMergePolicy();
+    this.aggregatorSummaryCacheEnable = config.isAggregatorSummaryCacheEnabled();
     this.cacheExec = Execs.singleThreaded("DruidSchema-Cache-%d");
     this.callbackExec = Execs.singleThreaded("DruidSchema-Callback-%d");
     this.escalator = escalator;
@@ -486,7 +494,7 @@ public class SegmentMetadataCache
                       // segmentReplicatable is used to determine if segments are served by historical or realtime servers
                       long isRealtime = server.isSegmentReplicationTarget() ? 0 : 1;
                       segmentMetadata = AvailableSegmentMetadata
-                          .builder(segment, isRealtime, ImmutableSet.of(server), null, DEFAULT_NUM_ROWS) // Added without needing a refresh
+                          .builder(segment, isRealtime, ImmutableSet.of(server), null, DEFAULT_NUM_ROWS, null) // Added without needing a refresh
                           .build();
                       markSegmentAsNeedRefresh(segment.getId());
                       if (!server.isSegmentReplicationTarget()) {
@@ -743,6 +751,7 @@ public class SegmentMetadataCache
           log.warn("Got analysis for segment [%s] we didn't ask for, ignoring.", analysis.getId());
         } else {
           final RowSignature rowSignature = analysisToRowSignature(analysis);
+          final Map<String, AggregatorSummary> aggregatorSummaryMap = toAggregatorSummary(analysis.getAggregators());
           log.debug("Segment[%s] has signature[%s].", segmentId, rowSignature);
           segmentMetadataInfo.compute(
               dataSource,
@@ -767,6 +776,7 @@ public class SegmentMetadataCache
                               .from(segmentMetadata)
                               .withRowSignature(rowSignature)
                               .withNumRows(analysis.getNumRows())
+                              .withAggregatorsSummary(aggregatorSummaryMap)
                               .build();
                           retVal.add(segmentId);
                           return updatedSegmentMetadata;
@@ -814,9 +824,11 @@ public class SegmentMetadataCache
 
     // Preserve order.
     final Map<String, ColumnType> columnTypes = new LinkedHashMap<>();
+    final Map<String, AggregatorSummary> mergedAggregatorsSummary = new HashMap<>();
 
     if (segmentsMap != null && !segmentsMap.isEmpty()) {
       for (AvailableSegmentMetadata availableSegmentMetadata : segmentsMap.values()) {
+        mergeLatestAggregatorSummaries(availableSegmentMetadata.getAggregatorsSummary(), mergedAggregatorsSummary);
         final RowSignature rowSignature = availableSegmentMetadata.getRowSignature();
         if (rowSignature != null) {
           for (String column : rowSignature.getColumnNames()) {
@@ -851,7 +863,46 @@ public class SegmentMetadataCache
     } else {
       tableDataSource = new TableDataSource(dataSource);
     }
-    return new DatasourceTable.PhysicalDatasourceMetadata(tableDataSource, builder.build(), isJoinable, isBroadcast);
+    return new DatasourceTable.PhysicalDatasourceMetadata(tableDataSource, builder.build(), isJoinable, isBroadcast, mergedAggregatorsSummary);
+  }
+
+  private Map<String, AggregatorSummary> toAggregatorSummary(
+      final Map<String, AggregatorFactory> aggregatorFactoryMap
+  )
+  {
+    if (aggregatorFactoryMap == null) {
+      return null;
+    }
+    DefaultObjectMapper defaultObjectMapper = new DefaultObjectMapper();
+    final Map<String, AggregatorSummary> aggregatorSummaryMap = new HashMap<>();
+    for (Map.Entry<String, AggregatorFactory> entry : aggregatorFactoryMap.entrySet()) {
+      AggregatorSummary aggSummary;
+      try {
+        aggSummary = defaultObjectMapper.readValue(
+            defaultObjectMapper.writeValueAsString(entry.getValue()),
+            AggregatorSummary.class
+        );
+      }
+      catch (JsonProcessingException e) {
+        log.error("Unable to process type: [%s]", e);
+        aggSummary = null;
+      }
+      aggregatorSummaryMap.put(entry.getKey(), aggSummary);
+    }
+    return AGGREGATOR_SUMMARY_FACTORY_INTERNER.intern(aggregatorSummaryMap);
+  }
+
+  private void mergeLatestAggregatorSummaries(
+      final Map<String, AggregatorSummary> aggregatorsSummary,
+      final Map<String, AggregatorSummary> aggregatorsSummaryMerged
+  )
+  {
+    if (aggregatorsSummary == null) {
+      return;
+    }
+    for (Map.Entry<String, AggregatorSummary> entry : aggregatorsSummary.entrySet()) {
+      aggregatorsSummaryMerged.putIfAbsent(entry.getKey(), entry.getValue());
+    }
   }
 
   @VisibleForTesting
@@ -919,6 +970,17 @@ public class SegmentMetadataCache
                      .map(SegmentId::toDescriptor).collect(Collectors.toList())
     );
 
+    final AggregatorMergeStrategy aggregatorMergeStrategy;
+    final EnumSet<SegmentMetadataQuery.AnalysisType> analysisTypes;
+    log.info("GRRRYEAH aggregatorSummaryCacheEnable=[%s]", aggregatorSummaryCacheEnable);
+    if (aggregatorSummaryCacheEnable) {
+      analysisTypes = EnumSet.of(SegmentMetadataQuery.AnalysisType.AGGREGATORS);
+      aggregatorMergeStrategy = AggregatorMergeStrategy.LATEST;
+    } else {
+      analysisTypes = EnumSet.noneOf(SegmentMetadataQuery.AnalysisType.class);
+      aggregatorMergeStrategy = null;
+    }
+
     final SegmentMetadataQuery segmentMetadataQuery = new SegmentMetadataQuery(
         new TableDataSource(dataSource),
         querySegmentSpec,
@@ -930,10 +992,10 @@ public class SegmentMetadataCache
             QueryContexts.BROKER_PARALLEL_MERGE_KEY,
             false
         ),
-        EnumSet.noneOf(SegmentMetadataQuery.AnalysisType.class),
+        analysisTypes,
         false,
         null,
-        null // we don't care about merging strategy because merge is false
+        aggregatorMergeStrategy
     );
 
     return queryLifecycleFactory

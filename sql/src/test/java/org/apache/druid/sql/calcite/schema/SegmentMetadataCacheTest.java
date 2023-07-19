@@ -48,6 +48,7 @@ import org.apache.druid.query.aggregation.CountAggregatorFactory;
 import org.apache.druid.query.aggregation.DoubleSumAggregatorFactory;
 import org.apache.druid.query.aggregation.LongSumAggregatorFactory;
 import org.apache.druid.query.aggregation.hyperloglog.HyperUniquesAggregatorFactory;
+import org.apache.druid.query.metadata.metadata.AggregatorMergeStrategy;
 import org.apache.druid.query.metadata.metadata.AllColumnIncluderator;
 import org.apache.druid.query.metadata.metadata.ColumnAnalysis;
 import org.apache.druid.query.metadata.metadata.SegmentAnalysis;
@@ -397,6 +398,8 @@ public class SegmentMetadataCacheTest extends SegmentMetadataCacheCommon
     final RelDataType rowType = fooTable.getRowType(new JavaTypeFactoryImpl());
     final List<RelDataTypeField> fields = rowType.getFieldList();
 
+    Assert.assertTrue(fooTable instanceof DatasourceTable);
+    Assert.assertEquals(0, fooDs.aggregatorsSummary().size());
     Assert.assertEquals(6, fields.size());
 
     Assert.assertEquals("__time", fields.get(0).getName());
@@ -427,6 +430,9 @@ public class SegmentMetadataCacheTest extends SegmentMetadataCacheCommon
     final RelDataType rowType = fooTable.getRowType(new JavaTypeFactoryImpl());
     final List<RelDataTypeField> fields = rowType.getFieldList();
 
+    Assert.assertEquals(0, fooDs.aggregatorsSummary().size());
+    Assert.assertTrue(fooTable instanceof DatasourceTable);
+    Assert.assertNull(((DatasourceTable) fooTable).getAggregatorsSummary());
     Assert.assertEquals(3, fields.size());
 
     Assert.assertEquals("__time", fields.get(0).getName());
@@ -458,6 +464,7 @@ public class SegmentMetadataCacheTest extends SegmentMetadataCacheCommon
     final RelDataType rowType = table.getRowType(new JavaTypeFactoryImpl());
     final List<RelDataTypeField> fields = rowType.getFieldList();
 
+    Assert.assertEquals(0, fooDs.aggregatorsSummary().size());
     Assert.assertEquals(9, fields.size());
 
     Assert.assertEquals("__time", fields.get(0).getName());
@@ -501,6 +508,7 @@ public class SegmentMetadataCacheTest extends SegmentMetadataCacheCommon
     final RelDataType rowType = table.getRowType(new JavaTypeFactoryImpl());
     final List<RelDataTypeField> fields = rowType.getFieldList();
 
+    Assert.assertEquals(0, fooDs.aggregatorsSummary().size());
     Assert.assertEquals(9, fields.size());
 
     Assert.assertEquals("__time", fields.get(0).getName());
@@ -532,6 +540,69 @@ public class SegmentMetadataCacheTest extends SegmentMetadataCacheCommon
 
     Assert.assertEquals("unique_dim1", fields.get(8).getName());
     Assert.assertEquals(SqlTypeName.OTHER, fields.get(8).getType().getSqlTypeName());
+  }
+
+  @Test
+  public void testGetTableMapSomeTableWithAggregatorSummaryCacheEnabled() throws InterruptedException
+  {
+    SegmentMetadataCache schema = buildSchemaMarkAndTableLatch(
+        new SegmentMetadataCacheConfig() {
+          @Override
+          public boolean isAggregatorSummaryCacheEnabled()
+          {
+            return true;
+          }
+        }
+    );
+
+    final DatasourceTable.PhysicalDatasourceMetadata fooDs = schema.getDatasource(CalciteTests.SOME_DATASOURCE);
+    final DruidTable table = new DatasourceTable(fooDs);
+    final RelDataType rowType = table.getRowType(new JavaTypeFactoryImpl());
+    final List<RelDataTypeField> fields = rowType.getFieldList();
+
+    Assert.assertEquals(9, fields.size());
+
+    Assert.assertEquals("__time", fields.get(0).getName());
+    Assert.assertEquals(SqlTypeName.TIMESTAMP, fields.get(0).getType().getSqlTypeName());
+
+    Assert.assertEquals("numbery", fields.get(1).getName());
+    Assert.assertEquals(SqlTypeName.DOUBLE, fields.get(1).getType().getSqlTypeName());
+
+    Assert.assertEquals("numberyArrays", fields.get(2).getName());
+    Assert.assertEquals(SqlTypeName.ARRAY, fields.get(2).getType().getSqlTypeName());
+    Assert.assertEquals(SqlTypeName.DOUBLE, fields.get(2).getType().getComponentType().getSqlTypeName());
+
+    Assert.assertEquals("stringy", fields.get(3).getName());
+    Assert.assertEquals(SqlTypeName.ARRAY, fields.get(3).getType().getSqlTypeName());
+    Assert.assertEquals(SqlTypeName.VARCHAR, fields.get(3).getType().getComponentType().getSqlTypeName());
+
+    Assert.assertEquals("array", fields.get(4).getName());
+    Assert.assertEquals(SqlTypeName.ARRAY, fields.get(4).getType().getSqlTypeName());
+    Assert.assertEquals(SqlTypeName.DOUBLE, fields.get(4).getType().getComponentType().getSqlTypeName());
+
+    Assert.assertEquals("nested", fields.get(5).getName());
+    Assert.assertEquals(SqlTypeName.OTHER, fields.get(5).getType().getSqlTypeName());
+
+    Assert.assertEquals("cnt", fields.get(6).getName());
+    Assert.assertEquals(SqlTypeName.BIGINT, fields.get(6).getType().getSqlTypeName());
+
+    Assert.assertEquals("m1", fields.get(7).getName());
+    Assert.assertEquals(SqlTypeName.DOUBLE, fields.get(7).getType().getSqlTypeName());
+
+    Assert.assertEquals("unique_dim1", fields.get(8).getName());
+    Assert.assertEquals(SqlTypeName.OTHER, fields.get(8).getType().getSqlTypeName());
+
+    // Validate the cached aggregators
+    Assert.assertEquals(3, fooDs.aggregatorsSummary().size());
+    Assert.assertEquals(
+        ImmutableMap.of(
+            "m1", new AggregatorSummary("doubleSum"),
+            "cnt", new AggregatorSummary("longSum"),
+            "unique_dim1", new AggregatorSummary("hyperUnique")
+        ),
+        fooDs.aggregatorsSummary()
+    );
+
   }
 
 
@@ -586,10 +657,12 @@ public class SegmentMetadataCacheTest extends SegmentMetadataCacheCommon
                                                .findFirst()
                                                .orElse(null);
     final AvailableSegmentMetadata currentMetadata = segmentsMetadata.get(currentSegment.getId());
+    Assert.assertNull(currentMetadata.getAggregatorsSummary());
     Assert.assertEquals(updatedMetadata.getSegment().getId(), currentMetadata.getSegment().getId());
     Assert.assertEquals(updatedMetadata.getNumRows(), currentMetadata.getNumRows());
     // numreplicas do not change here since we addSegment with the same server which was serving existingSegment before
     Assert.assertEquals(updatedMetadata.getNumReplicas(), currentMetadata.getNumReplicas());
+    Assert.assertNull(updatedMetadata.getAggregatorsSummary());
   }
 
   @Test
@@ -694,6 +767,7 @@ public class SegmentMetadataCacheTest extends SegmentMetadataCacheCommon
     Assert.assertNotNull(currentSegment);
     currentMetadata = segmentsMetadata.get(currentSegment.getId());
     Assert.assertEquals(0L, currentMetadata.isRealtime());
+    Assert.assertNull(currentMetadata.getAggregatorsSummary());
   }
 
   @Test
@@ -784,6 +858,7 @@ public class SegmentMetadataCacheTest extends SegmentMetadataCacheCommon
     Assert.assertEquals(2, metadata.getNumReplicas());
     Assert.assertTrue(schema.getSegmentsNeedingRefresh().contains(metadata.getSegment().getId()));
     Assert.assertFalse(schema.getMutableSegments().contains(metadata.getSegment().getId()));
+    Assert.assertNull(metadata.getAggregatorsSummary());
   }
 
   @Test
@@ -826,6 +901,7 @@ public class SegmentMetadataCacheTest extends SegmentMetadataCacheCommon
     AvailableSegmentMetadata metadata = metadatas.get(0);
     Assert.assertEquals(1, metadata.isRealtime());
     Assert.assertEquals(0, metadata.getNumRows());
+    Assert.assertNull(metadata.getAggregatorsSummary());
     Assert.assertTrue(schema.getSegmentsNeedingRefresh().contains(metadata.getSegment().getId()));
     Assert.assertTrue(schema.getMutableSegments().contains(metadata.getSegment().getId()));
   }

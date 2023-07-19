@@ -26,7 +26,9 @@ import org.apache.calcite.rel.logical.LogicalTableScan;
 import org.apache.druid.query.DataSource;
 import org.apache.druid.query.TableDataSource;
 import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.sql.calcite.schema.AggregatorSummary;
 
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -50,18 +52,21 @@ public class DatasourceTable extends DruidTable
     private final RowSignature rowSignature;
     private final boolean joinable;
     private final boolean broadcast;
+    private final Map<String, AggregatorSummary> aggregatorsSummary;
 
     public PhysicalDatasourceMetadata(
         final TableDataSource dataSource,
         final RowSignature rowSignature,
         final boolean isJoinable,
-        final boolean isBroadcast
+        final boolean isBroadcast,
+        final Map<String, AggregatorSummary> aggregatorsSummary
     )
     {
       this.dataSource = Preconditions.checkNotNull(dataSource, "dataSource");
       this.rowSignature = Preconditions.checkNotNull(rowSignature, "rowSignature");
       this.joinable = isJoinable;
       this.broadcast = isBroadcast;
+      this.aggregatorsSummary = aggregatorsSummary;
     }
 
     public TableDataSource dataSource()
@@ -84,6 +89,11 @@ public class DatasourceTable extends DruidTable
       return broadcast;
     }
 
+    public Map<String, AggregatorSummary> aggregatorsSummary()
+    {
+      return aggregatorsSummary;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -99,7 +109,8 @@ public class DatasourceTable extends DruidTable
       if (!Objects.equals(dataSource, that.dataSource)) {
         return false;
       }
-      return Objects.equals(rowSignature, that.rowSignature);
+      return Objects.equals(rowSignature, that.rowSignature) &&
+             Objects.equals(aggregatorsSummary, that.aggregatorsSummary);
     }
 
     @Override
@@ -107,6 +118,7 @@ public class DatasourceTable extends DruidTable
     {
       int result = dataSource != null ? dataSource.hashCode() : 0;
       result = 31 * result + (rowSignature != null ? rowSignature.hashCode() : 0);
+      result = 31 * result + (aggregatorsSummary != null ? aggregatorsSummary.hashCode() : 0);
       return result;
     }
 
@@ -116,6 +128,7 @@ public class DatasourceTable extends DruidTable
       return "DatasourceMetadata{" +
              "dataSource=" + dataSource +
              ", rowSignature=" + rowSignature +
+             ", aggregatorsSummary=" + aggregatorsSummary +
              '}';
     }
   }
@@ -154,6 +167,12 @@ public class DatasourceTable extends DruidTable
     return LogicalTableScan.create(context.getCluster(), table);
   }
 
+  public Map<String, AggregatorSummary> getAggregatorsSummary()
+  {
+    return physicalMetadata.aggregatorsSummary();
+  }
+
+
   @Override
   public boolean equals(Object o)
   {
@@ -168,7 +187,8 @@ public class DatasourceTable extends DruidTable
     if (!Objects.equals(physicalMetadata, that.physicalMetadata)) {
       return false;
     }
-    return Objects.equals(getRowSignature(), that.getRowSignature());
+    return Objects.equals(getRowSignature(), that.getRowSignature())
+           && Objects.equals(getAggregatorsSummary(), that.getAggregatorsSummary());
   }
 
   @Override

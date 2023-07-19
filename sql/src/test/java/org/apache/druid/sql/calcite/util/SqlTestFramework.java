@@ -52,6 +52,7 @@ import org.apache.druid.sql.calcite.planner.CatalogResolver;
 import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
+import org.apache.druid.sql.calcite.planner.SegmentMetadataCacheConfig;
 import org.apache.druid.sql.calcite.rule.ExtensionCalciteRuleProvider;
 import org.apache.druid.sql.calcite.run.NativeSqlEngine;
 import org.apache.druid.sql.calcite.run.SqlEngine;
@@ -141,6 +142,8 @@ public class SqlTestFramework
         Closer closer
     );
 
+    SegmentMetadataCacheConfig createSegmentMetadataCacheConfig(Injector injector);
+
     SpecificSegmentsQuerySegmentWalker createQuerySegmentWalker(
         QueryRunnerFactoryConglomerate conglomerate,
         JoinableFactoryWrapper joinableFactory,
@@ -222,6 +225,12 @@ public class SqlTestFramework
             QueryStackTests.getProcessingConfig(true, builder.mergeBufferCount)
         );
       }
+    }
+
+    @Override
+    public SegmentMetadataCacheConfig createSegmentMetadataCacheConfig(Injector injector)
+    {
+      return SegmentMetadataCacheConfig.create();
     }
 
     @Override
@@ -505,6 +514,13 @@ public class SqlTestFramework
 
     @Provides
     @LazySingleton
+    public SegmentMetadataCacheConfig segmentMetadataConfig(final Injector injector)
+    {
+      return builder.componentSupplier.createSegmentMetadataCacheConfig(injector);
+    }
+
+    @Provides
+    @LazySingleton
     public SpecificSegmentsQuerySegmentWalker segmentsQuerySegmentWalker(final Injector injector)
     {
       try {
@@ -610,6 +626,11 @@ public class SqlTestFramework
   public QueryRunnerFactoryConglomerate conglomerate()
   {
     return injector.getInstance(QueryRunnerFactoryConglomerate.class);
+  }
+
+  public SegmentMetadataCacheConfig segmentMetadataConfig()
+  {
+    return injector.getInstance(SegmentMetadataCacheConfig.class);
   }
 
   /**

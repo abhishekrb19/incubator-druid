@@ -143,7 +143,8 @@ public class QueryFrameworkUtils
         conglomerate,
         walker,
         plannerConfig,
-        druidSchemaManager
+        druidSchemaManager,
+        injector.getInstance(SegmentMetadataCacheConfig.class)
     );
     SystemSchema systemSchema =
         CalciteTests.createMockSystemSchema(druidSchema, walker, authorizerMapper);
@@ -169,7 +170,8 @@ public class QueryFrameworkUtils
         new InformationSchema(
             catalog,
             authorizerMapper,
-            createOperatorTable(injector)
+            createOperatorTable(injector),
+            druidSchema
         );
     rootSchema.add(CalciteTests.DRUID_SCHEMA_NAME, druidSchema);
     rootSchema.add(INFORMATION_SCHEMA_NAME, informationSchema);
@@ -185,7 +187,7 @@ public class QueryFrameworkUtils
 
   public static DruidSchemaCatalog createMockRootSchema(
       final Injector injector,
-           final QueryRunnerFactoryConglomerate conglomerate,
+      final QueryRunnerFactoryConglomerate conglomerate,
       final SpecificSegmentsQuerySegmentWalker walker,
       final PlannerConfig plannerConfig,
       final AuthorizerMapper authorizerMapper
@@ -207,7 +209,8 @@ public class QueryFrameworkUtils
       final QueryRunnerFactoryConglomerate conglomerate,
       final SpecificSegmentsQuerySegmentWalker walker,
       final PlannerConfig plannerConfig,
-      final DruidSchemaManager druidSchemaManager
+      final DruidSchemaManager druidSchemaManager,
+      final SegmentMetadataCacheConfig segmentMetadataCacheConfig
   )
   {
     final SegmentMetadataCache cache = new SegmentMetadataCache(
@@ -222,7 +225,7 @@ public class QueryFrameworkUtils
           }
         },
         createDefaultJoinableFactory(injector),
-        SegmentMetadataCacheConfig.create(),
+        segmentMetadataCacheConfig,
         CalciteTests.TEST_AUTHENTICATOR_ESCALATOR,
         new BrokerInternalQueryConfig(),
         new NoopServiceEmitter()

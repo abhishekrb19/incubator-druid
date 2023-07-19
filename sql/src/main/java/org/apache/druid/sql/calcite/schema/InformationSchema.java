@@ -56,6 +56,7 @@ import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.planner.DruidTypeSystem;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
+import org.apache.druid.sql.calcite.table.DatasourceTable;
 import org.apache.druid.sql.calcite.table.DruidTable;
 import org.apache.druid.sql.calcite.table.RowSignatures;
 
@@ -137,6 +138,7 @@ public class InformationSchema extends AbstractSchema
       .add("CHARACTER_SET_NAME", SqlTypeName.VARCHAR, true)
       .add("COLLATION_NAME", SqlTypeName.VARCHAR, true)
       .add("JDBC_TYPE", SqlTypeName.BIGINT)
+      .add("AGGREGATOR_TYPE", SqlTypeName.VARCHAR, true)
       .build();
   private static final RelDataType ROUTINES_SIGNATURE = new RowTypeBuilder()
       .add("ROUTINE_CATALOG", SqlTypeName.VARCHAR)
@@ -159,14 +161,15 @@ public class InformationSchema extends AbstractSchema
   public InformationSchema(
       @Named(DruidCalciteSchemaModule.INCOMPLETE_SCHEMA) final DruidSchemaCatalog rootSchema,
       final AuthorizerMapper authorizerMapper,
-      final DruidOperatorTable operatorTable
+      final DruidOperatorTable operatorTable,
+      final DruidSchema druidSchema
   )
   {
     this.rootSchema = Preconditions.checkNotNull(rootSchema, "rootSchema");
     this.tableMap = ImmutableMap.of(
         SCHEMATA_TABLE, new SchemataTable(),
         TABLES_TABLE, new TablesTable(),
-        COLUMNS_TABLE, new ColumnsTable(),
+        COLUMNS_TABLE, new ColumnsTable(druidSchema),
         ROUTINES_TABLE, new RoutinesTable(operatorTable)
     );
     this.authorizerMapper = authorizerMapper;
@@ -333,6 +336,13 @@ public class InformationSchema extends AbstractSchema
 
   class ColumnsTable extends AbstractTable implements ScannableTable
   {
+    private final DruidSchema druidSchema;
+
+    public ColumnsTable(final DruidSchema druidSchema)
+    {
+      this.druidSchema = druidSchema;
+    }
+
     @Override
     public Enumerable<Object[]> scan(final DataContext root)
     {
@@ -446,6 +456,16 @@ public class InformationSchema extends AbstractSchema
         final RelDataTypeFactory typeFactory
     )
     {
+      final Table druidSchemaTable = druidSchema.getTable(tableName);
+      final Map<String, AggregatorSummary> aggregatorsSummary;
+      if (druidSchemaTable instanceof DatasourceTable) {
+        DatasourceTable druidMetaTable =
+            (DatasourceTable) druidSchemaTable;
+        aggregatorsSummary = druidMetaTable.getAggregatorsSummary();
+      } else {
+        aggregatorsSummary = null;
+      }
+
       return FluentIterable
           .from(tableSchema.getFieldList())
           .transform(
@@ -459,6 +479,14 @@ public class InformationSchema extends AbstractSchema
                   boolean isNumeric = SqlTypeName.NUMERIC_TYPES.contains(sqlTypeName);
                   boolean isCharacter = SqlTypeName.CHAR_TYPES.contains(sqlTypeName);
                   boolean isDateTime = SqlTypeName.DATETIME_TYPES.contains(sqlTypeName);
+
+                  String aggregatorType = null;
+                  if (aggregatorsSummary != null) {
+                    AggregatorSummary aggSummary = aggregatorsSummary.get(field.getName());
+                    if (aggSummary != null) {
+                      aggregatorType = aggSummary.getType();
+                    }
+                  }
 
                   final String typeName = type instanceof RowSignatures.ComplexSqlType ? ((RowSignatures.ComplexSqlType) type).asTypeString() : sqlTypeName.toString();
                   return new Object[]{
@@ -478,7 +506,8 @@ public class InformationSchema extends AbstractSchema
                       isDateTime ? (long) type.getPrecision() : null, // DATETIME_PRECISION
                       isCharacter ? type.getCharset().name() : null, // CHARACTER_SET_NAME
                       isCharacter ? type.getCollation().getCollationName() : null, // COLLATION_NAME
-                      (long) type.getSqlTypeName().getJdbcOrdinal() // JDBC_TYPE (Druid extension)
+                      (long) type.getSqlTypeName().getJdbcOrdinal(), // JDBC_TYPE (Druid extension)
+                      aggregatorType // AGGREGATOR_TYPE (Druid extension)
                   };
                 }
               }

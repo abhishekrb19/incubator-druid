@@ -47,6 +47,9 @@ public class SegmentMetadataCacheConfig
   private SegmentMetadataCache.ColumnTypeMergePolicy metadataColumnTypeMergePolicy =
       new SegmentMetadataCache.LeastRestrictiveTypeMergePolicy();
 
+  @JsonProperty
+  private boolean aggregatorSummaryCacheEnable = false;
+
   public static SegmentMetadataCacheConfig create()
   {
     return new SegmentMetadataCacheConfig();
@@ -86,6 +89,11 @@ public class SegmentMetadataCacheConfig
     return metadataColumnTypeMergePolicy;
   }
 
+  public boolean isAggregatorSummaryCacheEnabled()
+  {
+    return aggregatorSummaryCacheEnable;
+  }
+
   @Override
   public String toString()
   {
@@ -95,6 +103,7 @@ public class SegmentMetadataCacheConfig
            ", metadataSegmentPollPeriod=" + metadataSegmentPollPeriod +
            ", awaitInitializationOnStart=" + awaitInitializationOnStart +
            ", metadataColumnTypeMergePolicy=" + metadataColumnTypeMergePolicy +
+           ", aggregatorSummaryCacheEnable=" + aggregatorSummaryCacheEnable +
            '}';
   }
 }

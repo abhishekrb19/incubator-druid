@@ -19,7 +19,9 @@
 
 package org.apache.druid.sql.calcite.schema;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Injector;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
@@ -40,6 +42,7 @@ import org.apache.druid.sql.calcite.expression.OperatorConversions;
 import org.apache.druid.sql.calcite.expression.SqlOperatorConversion;
 import org.apache.druid.sql.calcite.planner.DruidOperatorTable;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
+import org.apache.druid.sql.calcite.planner.SegmentMetadataCacheConfig;
 import org.apache.druid.sql.calcite.table.RowSignatures;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.apache.druid.sql.calcite.util.QueryFrameworkUtils;
@@ -61,6 +64,19 @@ public class InformationSchemaTest extends BaseCalciteQueryTest
   private InformationSchema informationSchema;
   private SqlTestFramework qf;
 
+  @Override
+  public SegmentMetadataCacheConfig createSegmentMetadataCacheConfig(Injector injector)
+  {
+    return new SegmentMetadataCacheConfig()
+    {
+      @Override
+      public boolean isAggregatorSummaryCacheEnabled()
+      {
+        return true;
+      }
+    };
+  }
+
   @Before
   public void setUp()
   {
@@ -78,7 +94,8 @@ public class InformationSchemaTest extends BaseCalciteQueryTest
     informationSchema = new InformationSchema(
         rootSchema,
         CalciteTests.TEST_AUTHORIZER_MAPPER,
-        qf.operatorTable()
+        qf.operatorTable(),
+        null
     );
   }
 
@@ -88,6 +105,63 @@ public class InformationSchemaTest extends BaseCalciteQueryTest
     Assert.assertEquals(
         ImmutableSet.of("SCHEMATA", "TABLES", "COLUMNS", "ROUTINES"),
         informationSchema.getTableNames()
+    );
+  }
+
+  @Test
+  public void testInformationSchemaColumnsOnFooDatasource()
+  {
+    notMsqCompatible();
+    testQuery(
+        "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, AGGREGATOR_TYPE\n"
+        + "FROM INFORMATION_SCHEMA.COLUMNS\n"
+        + "WHERE TABLE_SCHEMA = 'druid' AND TABLE_NAME = 'foo'",
+        ImmutableList.of(),
+        ImmutableList.of(
+            new Object[]{"__time", "TIMESTAMP", "NO", null},
+            new Object[]{"dim1", "VARCHAR", "YES", null},
+            new Object[]{"dim2", "VARCHAR", "YES", null},
+            new Object[]{"dim3", "VARCHAR", "YES", null},
+            new Object[]{"cnt", "BIGINT", useDefault ? "NO" : "YES", "longSum"},
+            new Object[]{"m1", "FLOAT", useDefault ? "NO" : "YES", "floatSum"},
+            new Object[]{"m2", "DOUBLE", useDefault ? "NO" : "YES", "doubleSum"},
+            new Object[]{"unique_dim1", "COMPLEX<hyperUnique>", "YES", "hyperUnique"}
+        )
+    );
+  }
+
+  @Test
+  public void testInformationSchemaColumnsOnSomexDataSource()
+  {
+    testQuery(
+        PLANNER_CONFIG_DEFAULT,
+        "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, AGGREGATOR_TYPE\n"
+        + "FROM INFORMATION_SCHEMA.COLUMNS\n"
+        + "WHERE TABLE_SCHEMA = 'druid' AND TABLE_NAME = 'somexdatasource'",
+        CalciteTests.SUPER_USER_AUTH_RESULT,
+        ImmutableList.of(),
+        ImmutableList.of(
+            new Object[]{"__time", "TIMESTAMP", "NO", null},
+            new Object[]{"cnt_x", "BIGINT", useDefault ? "NO" : "YES", "longSum"},
+            new Object[]{"m1_x", "FLOAT", useDefault ? "NO" : "YES", "floatSum"},
+            new Object[]{"m2_x", "DOUBLE", useDefault ? "NO" : "YES", "doubleSum"},
+            new Object[]{"unique_dim1_x", "COMPLEX<hyperUnique>", "YES", "hyperUnique"}
+        )
+    );
+  }
+
+  @Test
+  public void testInformationSchemaColumnsOnView()
+  {
+    notMsqCompatible();
+    testQuery(
+        "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, AGGREGATOR_TYPE\n"
+        + "FROM INFORMATION_SCHEMA.COLUMNS\n"
+        + "WHERE TABLE_SCHEMA = 'view' AND TABLE_NAME = 'aview'",
+        ImmutableList.of(),
+        ImmutableList.of(
+            new Object[]{"dim1_firstchar", "VARCHAR", "YES", null}
+        )
     );
   }
 

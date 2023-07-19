@@ -91,6 +91,7 @@ import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.sql.calcite.planner.PlannerConfig;
 import org.apache.druid.sql.calcite.planner.PlannerContext;
 import org.apache.druid.sql.calcite.planner.PlannerFactory;
+import org.apache.druid.sql.calcite.planner.SegmentMetadataCacheConfig;
 import org.apache.druid.sql.calcite.rule.ExtensionCalciteRuleProvider;
 import org.apache.druid.sql.calcite.run.SqlEngine;
 import org.apache.druid.sql.calcite.schema.DruidSchemaManager;
@@ -282,7 +283,7 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   @Nullable
   public final SqlEngine engine0;
   private static SqlTestFramework queryFramework;
-  final boolean useDefault = NullHandling.replaceWithDefault();
+  public final boolean useDefault = NullHandling.replaceWithDefault();
 
   @Rule
   public ExpectedException expectedException = ExpectedException.none();
@@ -746,6 +747,12 @@ public class BaseCalciteQueryTest extends CalciteTestBase
   public QueryRunnerFactoryConglomerate createCongolmerate(Builder builder, Closer closer)
   {
     return baseComponentSupplier.createCongolmerate(builder, closer);
+  }
+
+  @Override
+  public SegmentMetadataCacheConfig createSegmentMetadataCacheConfig(Injector injector)
+  {
+    return baseComponentSupplier.createSegmentMetadataCacheConfig(injector);
   }
 
   @Override
