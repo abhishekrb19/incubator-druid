@@ -35,7 +35,10 @@ import java.util.Set;
 
 public class KafkaEmitterConfig
 {
+<<<<<<< HEAD
 
+=======
+>>>>>>> parent of db702d9953 (Kafka and Prometheus emtiter)
   public enum EventType
   {
     METRICS,

@@ -23,7 +23,6 @@ import io.prometheus.client.SimpleCollector;
 
 public class DimensionsAndCollector
 {
-
   private final String[] dimensions;
   private final SimpleCollector collector;
   private final double conversionFactor;
