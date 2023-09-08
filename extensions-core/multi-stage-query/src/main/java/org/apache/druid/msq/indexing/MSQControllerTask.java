@@ -72,7 +72,6 @@ public class MSQControllerTask extends AbstractTask implements ClientTaskQuery
 
   private final MSQSpec querySpec;
 
-
   /**
    * Enables users, and the web console, to see the original SQL query (if any). Not used by anything else in Druid.
    */
