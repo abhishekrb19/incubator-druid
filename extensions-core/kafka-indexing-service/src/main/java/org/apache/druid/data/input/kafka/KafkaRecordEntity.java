@@ -38,7 +38,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
  */
 public class KafkaRecordEntity extends ByteEntity
 {
-  
+
   private final ConsumerRecord<byte[], byte[]> record;
 
   public KafkaRecordEntity(ConsumerRecord<byte[], byte[]> record)

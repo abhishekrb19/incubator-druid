@@ -35,6 +35,7 @@ import java.util.Set;
 
 public class KafkaEmitterConfig
 {
+  
   public enum EventType
   {
     METRICS,
