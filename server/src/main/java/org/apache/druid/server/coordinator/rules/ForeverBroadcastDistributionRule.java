@@ -56,6 +56,7 @@ public class ForeverBroadcastDistributionRule extends BroadcastDistributionRule
     return true;
   }
 
+
   @Override
   public boolean equals(Object o)
   {

@@ -1888,6 +1888,7 @@ public abstract class SeekableStreamSupervisor<PartitionIdType, SequenceOffsetTy
     }
   }
 
+  
   private boolean isTaskInPendingCompletionGroups(String taskId)
   {
     for (List<TaskGroup> taskGroups : pendingCompletionTaskGroups.values()) {
