@@ -535,6 +535,9 @@ public class SqlStatementResource
         }
       }
 
+
+      
+
       boolean isSelectQuery = msqDestination instanceof TaskReportMSQDestination
                               || msqDestination instanceof DurableStorageMSQDestination;
 
