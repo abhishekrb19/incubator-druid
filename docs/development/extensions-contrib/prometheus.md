@@ -33,6 +33,8 @@ Emitter is enabled by setting `druid.emitter=prometheus` [configs](https://druid
 
 ## Configuration
 
+
+
 All the configuration parameters for the Prometheus emitter are under `druid.emitter.prometheus`.
 
 | property                                      | description                                                                                                                                                                                                                            | required? | default                              |
