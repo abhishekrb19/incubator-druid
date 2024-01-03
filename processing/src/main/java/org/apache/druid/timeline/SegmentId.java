@@ -87,6 +87,9 @@ public final class SegmentId implements Comparable<SegmentId>
   private static final Splitter DELIMITER_SPLITTER = Splitter.on(DELIMITER);
   private static final Joiner DELIMITER_JOINER = Joiner.on(DELIMITER);
 
+  /**
+   * Some comment.
+   */
   private static final int DATE_TIME_SIZE_UPPER_LIMIT = "yyyy-MM-ddTHH:mm:ss.SSS+00:00".length();
 
   public static SegmentId of(String dataSource, Interval interval, String version, int partitionNum)
