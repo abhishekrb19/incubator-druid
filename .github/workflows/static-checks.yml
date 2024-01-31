@@ -172,12 +172,14 @@ jobs:
           npm run spellcheck
 
       - name: web console
+        id: run-webconsole-test
         run: |
           ${MVN} test -pl 'web-console'
           cd web-console
           { for i in 1 2 3; do npm run codecov && break || sleep 15; done }
 
       - name: web console end-to-end test
+        id: run-webconsole-test
         run: |
           ./.github/scripts/setup_generate_license.sh
           web-console/script/druid build
@@ -186,11 +188,11 @@ jobs:
           web-console/script/druid stop
 
       - name: Tar druid logs
-        if: ${{ failure() }}
+        if: ${{ failure() && steps.run-webconsole-test.conclusion == 'failure' }}
         run: tar cvzf ./druid-logs.tgz -C ./distribution/target/apache-druid-*-SNAPSHOT/ logs
 
       - name: Upload druid logs to GitHub
-        if: ${{ failure() }}
+        if: ${{ failure() && steps.run-webconsole-test.conclusion == 'failure' }}
         uses: actions/upload-artifact@master
         with:
           name: Druid logs web-checks
