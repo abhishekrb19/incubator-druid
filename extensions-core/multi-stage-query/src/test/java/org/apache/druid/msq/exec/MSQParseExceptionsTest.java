@@ -131,7 +131,6 @@ public class MSQParseExceptionsTest extends MSQTestBase
         .setExpectedDataSource("foo1")
         .setExpectedMSQFault(
             new InvalidNullByteFault(
-                
                 "external input source: InlineInputSource{data='{\"desc\":\"Row with NULL\",\"text\":\"There is a null in\\u0000 here somewhere\"}\n'}",
                 1,
                 "text",

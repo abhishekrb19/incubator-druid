@@ -419,7 +419,8 @@ The following table lists query limits:
 
 ## Error codes
 
-The following table describes error codes you may encounter in the `multiStageQuery.payload.status.errorReport.error.errorCode` field:
+The following table DESCRIBES DULTA error codes you may encounter in the `multiStageQuery.payload.status.errorReport.error.errorCode` field:
+
 
 | Code | Meaning | Additional fields |
 |---|---|---|
