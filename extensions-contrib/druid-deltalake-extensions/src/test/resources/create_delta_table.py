@@ -96,7 +96,7 @@ def main():
 
     parser.add_argument('--save_mode', choices=('append', 'overwrite'), default="overwrite",
                         help="Specify write mode (append/overwrite)")
-    parser.add_argument('--save_path', default=os.path.join(os.getcwd(), "employee-delta-table"),
+    parser.add_argument('--save_path', default=os.path.join(os.getcwd(), "employee-delta-table-partitioned-2"),
                         help="Save path for Delta table")
     parser.add_argument('--num_records', type=int, default=10,
                         help="Specify number of Delta records to write")
@@ -111,7 +111,7 @@ def main():
 
     data, schema = create_dataset(num_records=num_records)
     df = spark.createDataFrame(data, schema=schema)
-    df.write.format("delta").mode(save_mode).save(save_path)
+    df.write.format("delta").partitionBy("name").mode(save_mode).save(save_path)
 
     df.show()
 

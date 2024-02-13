@@ -53,7 +53,7 @@ public class DeltaTestUtils
   /**
    * The Delta table path used by unit tests.
    */
-  public static final String DELTA_TABLE_PATH = "src/test/resources/employee-delta-table";
+  public static final String DELTA_TABLE_PATH = "src/test/resources/employee-delta-table-partitioned";
   /**
    * The list of dimensions in the Delta table {@link #DELTA_TABLE_PATH}.
    */

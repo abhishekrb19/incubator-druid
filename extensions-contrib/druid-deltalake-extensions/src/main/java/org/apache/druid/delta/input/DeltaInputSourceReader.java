@@ -19,6 +19,7 @@
 
 package org.apache.druid.delta.input;
 
+import io.delta.kernel.data.ColumnVector;
 import io.delta.kernel.data.FilteredColumnarBatch;
 import io.delta.kernel.data.Row;
 import org.apache.druid.data.input.InputRow;
@@ -31,6 +32,7 @@ import org.apache.druid.java.util.common.parsers.CloseableIterator;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 /**
  * A reader for the Delta Lake input source. It initializes an iterator {@link DeltaInputSourceIterator}
@@ -45,7 +47,6 @@ public class DeltaInputSourceReader implements InputSourceReader
   public DeltaInputSourceReader(
       Iterator<io.delta.kernel.utils.CloseableIterator<FilteredColumnarBatch>> filteredColumnarBatchIterators,
       InputRowSchema inputRowSchema
-
   )
   {
     this.filteredColumnarBatchIterators = filteredColumnarBatchIterators;
@@ -120,7 +121,10 @@ public class DeltaInputSourceReader implements InputSourceReader
             filteredColumnarBatchIterators.next();
 
         while (filteredBatchIterator.hasNext()) {
-          currentBatch = filteredBatchIterator.next().getRows();
+          final FilteredColumnarBatch nextBatch = filteredBatchIterator.next();
+          Optional<ColumnVector> selectionVector = nextBatch.getSelectionVector();
+          System.out.println("Selection vector present??" + selectionVector.isPresent());
+          currentBatch = nextBatch.getRows();
           if (currentBatch.hasNext()) {
             return true;
           }
