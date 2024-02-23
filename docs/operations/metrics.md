@@ -368,6 +368,8 @@ These metrics are for the Druid Coordinator and are reset each time the Coordina
 
 ## General Health
 
+
+
 ### Service Health
 
 |Metric|Description|Dimensions|Normal value|

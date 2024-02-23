@@ -31,4 +31,5 @@ import java.lang.annotation.Target;
 @BindingAnnotation
 public @interface MultiStageQuery
 {
+
 }
