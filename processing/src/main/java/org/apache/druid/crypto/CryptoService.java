@@ -56,6 +56,8 @@ public class CryptoService
   // User provided secret phrase used for encrypting data
   private final char[] passPhrase;
 
+
+
   // Variables for algorithm used to generate a SecretKey based on user provided passPhrase
   private final String secretKeyFactoryAlg;
   private final int saltSize;

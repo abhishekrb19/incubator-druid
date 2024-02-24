@@ -38,6 +38,8 @@ import java.util.regex.Pattern;
 public class PrometheusEmitterConfig
 {
 
+  
+
   static final Pattern PATTERN = Pattern.compile("[a-zA-Z_:][a-zA-Z0-9_:]*");
 
   @JsonProperty
