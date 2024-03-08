@@ -73,6 +73,8 @@ public class KillUnusedSegments implements CoordinatorDuty
                 && (KILL_TASK_TYPE.equals(status.getType()) && status.getId().startsWith(TASK_ID_PREFIX));
   private static final Logger log = new Logger(KillUnusedSegments.class);
 
+
+  
   private final Duration period;
   private final Duration durationToRetain;
   private final boolean ignoreDurationToRetain;
