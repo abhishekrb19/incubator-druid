@@ -372,7 +372,10 @@ public class MetadataResourceTest
         request, DATASOURCE1, "2015/2014", null, null, null
     );
     Assert.assertEquals(400, response.getStatus());
-    Assert.assertEquals("Bad Interval[2015/2014]: [The end instant must be greater than the start instant]", getExceptionMessageFrom(response));
+    Assert.assertEquals(
+        "Bad interval[2015/2014]: [The end instant must be greater than the start instant]",
+        getExceptionMessageFrom(response)
+    );
   }
 
   @Test
@@ -382,7 +385,10 @@ public class MetadataResourceTest
         request, DATASOURCE1, null, null, null, "Ascd"
     );
     Assert.assertEquals(400, response.getStatus());
-    Assert.assertEquals("Unexpected value[Ascd] for SortOrder. Possible values are: [ASC, DESC]", getExceptionMessageFrom(response));
+    Assert.assertEquals(
+        "Unexpected value[Ascd] for SortOrder. Possible values are: [ASC, DESC]",
+        getExceptionMessageFrom(response)
+    );
   }
 
   private Answer<Iterable<DataSegmentPlus>> mockIterateAllUnusedSegmentsForDatasource()
