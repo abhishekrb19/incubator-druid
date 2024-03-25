@@ -136,8 +136,7 @@ public class MetadataResourceTest
                ArgumentMatchers.any(),
                ArgumentMatchers.any(),
                ArgumentMatchers.any(),
-               ArgumentMatchers.any()
-           );
+               ArgumentMatchers.any());
 
     metadataResource = new MetadataResource(
         segmentsMetadataManager,
@@ -265,129 +264,116 @@ public class MetadataResourceTest
   @Test
   public void testGetUnusedSegmentsInDataSourceWithValidDataSource()
   {
-    final Response response = metadataResource.getUnusedSegmentsInDataSource(
-        request, DATASOURCE1, null, null, null, null
-    );
-    final List<DataSegmentPlus> resultList = extractResponseList(response);
-    Assert.assertEquals(segmentsPlus, resultList);
+    final Response response = metadataResource
+        .getUnusedSegmentsInDataSource(request, DATASOURCE1, null, null, null, null);
+    final List<DataSegmentPlus> observedSegments = extractResponseList(response);
+    Assert.assertEquals(segmentsPlus, observedSegments);
   }
 
   @Test
   public void testGetUnusedSegmentsInDataSourceWithIntervalFilter()
   {
-    final int numDays = 2;
-    String interval = SEGMENT_START_INTERVAL + "_P" + numDays + "D";
-    Response response = metadataResource.getUnusedSegmentsInDataSource(
-        request, DATASOURCE1, interval, null, null, null
-    );
+    final String interval = SEGMENT_START_INTERVAL + "_P2D";
+    final int expectedLimit = NUM_PARTITIONS * 2;
 
-    List<DataSegmentPlus> resultList = extractResponseList(response);
-    Assert.assertEquals(NUM_PARTITIONS * numDays, resultList.size());
-    Assert.assertEquals(
-        Arrays.asList(segmentsPlus.get(0), segmentsPlus.get(1), segmentsPlus.get(2), segmentsPlus.get(3)),
-        resultList
-    );
+    final Response response = metadataResource
+        .getUnusedSegmentsInDataSource(request, DATASOURCE1, interval, null, null, null);
+    final List<DataSegmentPlus> observedSegments = extractResponseList(response);
+    Assert.assertEquals(expectedLimit, observedSegments.size());
+    Assert.assertEquals(segmentsPlus.stream().limit(expectedLimit).collect(Collectors.toList()), observedSegments);
   }
 
   @Test
   public void testGetUnusedSegmentsInDataSourceWithLimitFilter()
   {
     final int limit = 3;
-    String interval = SEGMENT_START_INTERVAL + "_P2D";
-    Response response = metadataResource.getUnusedSegmentsInDataSource(
-        request, DATASOURCE1, interval, limit, null, null
-    );
+    final String interval = SEGMENT_START_INTERVAL + "_P2D";
 
-    List<DataSegmentPlus> resultList = extractResponseList(response);
-    Assert.assertEquals(limit, resultList.size());
-    Assert.assertEquals(Arrays.asList(segmentsPlus.get(0), segmentsPlus.get(1), segmentsPlus.get(2)), resultList);
+    final Response response = metadataResource
+        .getUnusedSegmentsInDataSource(request, DATASOURCE1, interval, limit, null, null);
+    final List<DataSegmentPlus> observedSegments = extractResponseList(response);
+    Assert.assertEquals(limit, observedSegments.size());
+    Assert.assertEquals(segmentsPlus.stream().limit(limit).collect(Collectors.toList()), observedSegments);
   }
 
   @Test
   public void testGetUnusedSegmentsInDataSourceWithLimitAndLastSegmentIdFilter()
   {
+    final int limit = 3;
     final String interval = SEGMENT_START_INTERVAL + "_P2D";
-    Response response = metadataResource.getUnusedSegmentsInDataSource(
-        request, DATASOURCE1, interval, 3, segments[2].getId().toString(), null
-    );
-
-    List<DataSegmentPlus> resultList = extractResponseList(response);
-    Assert.assertEquals(Collections.singletonList(segmentsPlus.get(3)), resultList);
+    final String lastSegmentId = segments[limit - 1].getId().toString();
+    final Response response = metadataResource
+        .getUnusedSegmentsInDataSource(request, DATASOURCE1, interval, limit, lastSegmentId, null);
+    final List<DataSegmentPlus> observedSegments = extractResponseList(response);
+    Assert.assertEquals(Collections.singletonList(segmentsPlus.get(limit)), observedSegments);
   }
 
   @Test
   public void testGetUnusedSegmentsInDataSourceWithNonExistentDataSource()
   {
-    final Response response = metadataResource.getUnusedSegmentsInDataSource(
-        request, "invalid_datasource", null, null, null, null
-    );
-    final List<DataSegmentPlus> resultList = extractResponseList(response);
-    Assert.assertTrue(resultList.isEmpty());
+    final Response response = metadataResource
+        .getUnusedSegmentsInDataSource(request, "non-existent", null, null, null, null);
+    final List<DataSegmentPlus> observedSegments = extractResponseList(response);
+    Assert.assertTrue(observedSegments.isEmpty());
   }
 
   @Test
   public void testGetUnusedSegmentsWithNoDataSource()
   {
-    final Response response = metadataResource.getUnusedSegmentsInDataSource(
-        request, null, null, null, null, null
-    );
+    final Response response = metadataResource
+        .getUnusedSegmentsInDataSource(request, null, null, null, null, null);
     Assert.assertEquals(400, response.getStatus());
-    Assert.assertEquals("dataSourceName must be non-empty.", getExceptionMessageFrom(response));
+    Assert.assertEquals("dataSourceName must be non-empty.", getExceptionMessage(response));
   }
 
   @Test
   public void testGetUnusedSegmentsWithEmptyDatasourceName()
   {
-    final Response response = metadataResource.getUnusedSegmentsInDataSource(
-        request, "", null, null, null, null
-    );
+    final Response response = metadataResource
+        .getUnusedSegmentsInDataSource(request, "", null, null, null, null);
     Assert.assertEquals(400, response.getStatus());
-    Assert.assertEquals("dataSourceName must be non-empty.", getExceptionMessageFrom(response));
+    Assert.assertEquals("dataSourceName must be non-empty.", getExceptionMessage(response));
   }
 
   @Test
   public void testGetUnusedSegmentsWithInvalidLimit()
   {
-    final Response response = metadataResource.getUnusedSegmentsInDataSource(
-        request, DATASOURCE1, null, -1, null, null
-    );
+    final Response response = metadataResource
+        .getUnusedSegmentsInDataSource(request, DATASOURCE1, null, -1, null, null);
     Assert.assertEquals(400, response.getStatus());
-    Assert.assertEquals("Invalid limit[-1] specified. Limit must be > 0.", getExceptionMessageFrom(response));
+    Assert.assertEquals("Invalid limit[-1] specified. Limit must be > 0.", getExceptionMessage(response));
   }
 
   @Test
   public void testGetUnusedSegmentsWithInvalidLastSegmentId()
   {
-    final Response response = metadataResource.getUnusedSegmentsInDataSource(
-        request, DATASOURCE1, null, null, "invalid", null
-    );
+    final Response response = metadataResource
+        .getUnusedSegmentsInDataSource(request, DATASOURCE1, null, null, "invalid", null);
     Assert.assertEquals(400, response.getStatus());
-    Assert.assertEquals("Invalid lastSegmentId[invalid] specified.", getExceptionMessageFrom(response));
+    Assert.assertEquals("Invalid lastSegmentId[invalid] specified.", getExceptionMessage(response));
   }
 
   @Test
   public void testGetUnusedSegmentsWithInvalidInterval()
   {
-    final Response response = metadataResource.getUnusedSegmentsInDataSource(
-        request, DATASOURCE1, "2015/2014", null, null, null
-    );
+    final Response response = metadataResource
+        .getUnusedSegmentsInDataSource(request, DATASOURCE1, "2015/2014", null, null, null);
     Assert.assertEquals(400, response.getStatus());
     Assert.assertEquals(
         "Bad interval[2015/2014]: [The end instant must be greater than the start instant]",
-        getExceptionMessageFrom(response)
+        getExceptionMessage(response)
     );
   }
 
   @Test
   public void testGetUnusedSegmentsWithInvalidSortOrder()
   {
-    final Response response = metadataResource.getUnusedSegmentsInDataSource(
-        request, DATASOURCE1, null, null, null, "Ascd"
-    );
+    final Response response = metadataResource
+        .getUnusedSegmentsInDataSource(request, DATASOURCE1, null, null, null, "Ascd");
     Assert.assertEquals(400, response.getStatus());
     Assert.assertEquals(
         "Unexpected value[Ascd] for SortOrder. Possible values are: [ASC, DESC]",
-        getExceptionMessageFrom(response)
+        getExceptionMessage(response)
     );
   }
 
@@ -421,7 +407,7 @@ public class MetadataResourceTest
     };
   }
 
-  private static String getExceptionMessageFrom(Response response)
+  private static String getExceptionMessage(final Response response)
   {
     if (response.getEntity() instanceof DruidException) {
       return ((DruidException) response.getEntity()).getMessage();

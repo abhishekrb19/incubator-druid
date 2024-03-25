@@ -366,7 +366,7 @@ public class MetadataResource
         throw InvalidInput.exception("Invalid lastSegmentId[%s] specified.", lastSegmentId);
       }
 
-      SortOrder theSortOrder = sortOrder == null ? null : SortOrder.fromValue(sortOrder);
+      final SortOrder theSortOrder = sortOrder == null ? null : SortOrder.fromValue(sortOrder);
 
       final Interval theInterval = interval != null ? Intervals.of(interval.replace('_', '/')) : null;
       final Iterable<DataSegmentPlus> unusedSegments = segmentsMetadataManager.iterateAllUnusedSegmentsForDatasource(
