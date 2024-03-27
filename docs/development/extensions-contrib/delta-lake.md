@@ -22,8 +22,6 @@ title: "Delta Lake extension"
   ~ under the License.
   -->
 
-## Delta Lake extension
-
 
 Delta Lake is an open source storage framework that enables building a
 Lakehouse architecture with various compute engines. [DeltaLakeInputSource](../../ingestion/input-sources.md#delta-lake-input-source) lets
