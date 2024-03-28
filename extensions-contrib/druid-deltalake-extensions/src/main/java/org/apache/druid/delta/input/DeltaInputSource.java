@@ -33,12 +33,10 @@ import io.delta.kernel.data.ColumnarBatch;
 import io.delta.kernel.data.FilteredColumnarBatch;
 import io.delta.kernel.data.Row;
 import io.delta.kernel.defaults.client.DefaultTableClient;
-import io.delta.kernel.expressions.Literal;
 import io.delta.kernel.expressions.Predicate;
 import io.delta.kernel.internal.InternalScanFileUtils;
 import io.delta.kernel.internal.data.ScanStateRow;
 import io.delta.kernel.internal.util.Utils;
-import io.delta.kernel.types.DataType;
 import io.delta.kernel.types.StructField;
 import io.delta.kernel.types.StructType;
 import io.delta.kernel.utils.CloseableIterator;
@@ -92,7 +90,7 @@ public class DeltaInputSource implements SplittableInputSource<DeltaSplit>
   public DeltaInputSource(
       @JsonProperty("tablePath") String tablePath,
       @JsonProperty("deltaSplit") @Nullable DeltaSplit deltaSplit,
-      @JsonProperty("deltaFilter") @Nullable DeltaFilter deltaFilter
+      @JsonProperty("filter") @Nullable DeltaFilter deltaFilter
   )
   {
     if (tablePath == null) {
@@ -204,7 +202,14 @@ public class DeltaInputSource implements SplittableInputSource<DeltaSplit>
     catch (TableNotFoundException e) {
       throw InvalidInput.exception(e, "tablePath[%s] not found.", tablePath);
     }
-    final Scan scan = latestSnapshot.getScanBuilder(tableClient).build();
+    final StructType fullSnapshotSchema = latestSnapshot.getSchema(tableClient);
+//    final StructType prunedSchema = pruneSchema(fullSnapshotSchema, null);
+
+    final ScanBuilder scanBuilder = latestSnapshot.getScanBuilder(tableClient);
+    if (deltaFilter != null) {
+      scanBuilder.withFilter(tableClient, deltaFilter.getFilterPredicate(fullSnapshotSchema));
+    }
+    final Scan scan = scanBuilder.withReadSchema(tableClient, fullSnapshotSchema).build();
     // scan files iterator for the current snapshot
     final CloseableIterator<FilteredColumnarBatch> scanFilesIterator = scan.getScanFiles(tableClient);
 
@@ -238,7 +243,7 @@ public class DeltaInputSource implements SplittableInputSource<DeltaSplit>
     return new DeltaInputSource(
         tablePath,
         split.get(),
-        null
+        deltaFilter
     );
   }
 

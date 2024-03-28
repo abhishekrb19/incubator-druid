@@ -36,7 +36,7 @@ public class DeltaNotFilter implements DeltaFilter
   )
   {
     if (filter == null) {
-      throw InvalidInput.exception("filter[%s] is invalid. Delta not filter requires 1 field", filter);
+      throw InvalidInput.exception("Delta not filter requires 1 field.");
     }
     this.filter = filter;
   }

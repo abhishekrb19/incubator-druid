@@ -30,44 +30,91 @@ import org.apache.druid.error.InvalidInput;
 public class DeltaBinaryOperatorFilter implements DeltaFilter
 {
   @JsonProperty
-  private final String filterOperator;
+  private final String operator;
 
   @JsonProperty
-  private final String filterColumn;
+  private final String column;
 
   @JsonProperty
-  private final String filterValue;
+  private final String value;
 
   @JsonCreator
   public DeltaBinaryOperatorFilter(
-      @JsonProperty("filterOperator") String filterOperator,
-      @JsonProperty("filterColumn") String filterColumn,
-      @JsonProperty("filterValue") String filterValue
+      @JsonProperty("operator") String operator,
+      @JsonProperty("column") String column,
+      @JsonProperty("value") String value
   )
   {
-    if (filterOperator == null) {
-      throw InvalidInput.exception("filterOperator is required for binary filters.");
+    if (operator == null) {
+      throw InvalidInput.exception("operator is required for binary filters.");
     }
-    if (filterColumn == null) {
-      throw InvalidInput.exception("filterColumn is required for binary filters.");
+    if (column == null) {
+      throw InvalidInput.exception("column is required for binary filters.");
     }
-    if (filterValue == null) {
-      throw InvalidInput.exception("filterValue is required for binary filters.");
+    if (value == null) {
+      throw InvalidInput.exception("value is required for binary filters.");
     }
-    this.filterOperator = filterOperator;
-    this.filterColumn = filterColumn;
-    this.filterValue = filterValue;
+    this.operator = operator;
+    this.column = column;
+    this.value = value;
   }
 
   @Override
   public Predicate getFilterPredicate(StructType snapshotSchema)
   {
     return new Predicate(
-        filterOperator,
+        operator,
         ImmutableList.of(
-            new Column(filterColumn),
-            LiteralHelper.dataTypeToLiteral(snapshotSchema, filterColumn, filterValue)
+            new Column(column),
+            LiteralHelper.dataTypeToLiteral(snapshotSchema, column, value)
         )
     );
+  }
+
+  public static class DeltaEqualsFilter extends DeltaBinaryOperatorFilter
+  {
+    @JsonCreator
+    public DeltaEqualsFilter(@JsonProperty("column") final String column, @JsonProperty("value") final String value)
+    {
+      super("=", column, value);
+    }
+  }
+
+
+  public static class DeltaGreaterThanFilter extends DeltaBinaryOperatorFilter
+  {
+    @JsonCreator
+    public DeltaGreaterThanFilter(@JsonProperty("column") final String column, @JsonProperty("value") final String value)
+    {
+      super(">", column, value);
+    }
+  }
+
+  public static class DeltaGreaterThanOrEqualsFilter extends DeltaBinaryOperatorFilter
+  {
+    @JsonCreator
+    public DeltaGreaterThanOrEqualsFilter(@JsonProperty("column") final String column, @JsonProperty("value") final String value)
+    {
+      super(">=", column, value);
+    }
+  }
+
+
+  public static class DeltaLessThanFilter extends DeltaBinaryOperatorFilter
+  {
+    @JsonCreator
+    public DeltaLessThanFilter(@JsonProperty("column") final String column, @JsonProperty("value") final String value)
+    {
+      super("<", column, value);
+    }
+  }
+
+  public static class DeltaLessThanOrEqualsFilter extends DeltaBinaryOperatorFilter
+  {
+    @JsonCreator
+    public DeltaLessThanOrEqualsFilter(@JsonProperty("column") final String column, @JsonProperty("value") final String value)
+    {
+      super("<=", column, value);
+    }
   }
 }

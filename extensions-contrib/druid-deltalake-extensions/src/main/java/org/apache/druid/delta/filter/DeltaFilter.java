@@ -26,10 +26,15 @@ import io.delta.kernel.types.StructType;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
 @JsonSubTypes(value = {
-    @JsonSubTypes.Type(name = "binary", value = DeltaBinaryOperatorFilter.class),
+    @JsonSubTypes.Type(name = "=", value = DeltaBinaryOperatorFilter.DeltaEqualsFilter.class),
+    @JsonSubTypes.Type(name = ">", value = DeltaBinaryOperatorFilter.DeltaGreaterThanFilter.class),
+    @JsonSubTypes.Type(name = ">=", value = DeltaBinaryOperatorFilter.DeltaGreaterThanOrEqualsFilter.class),
+    @JsonSubTypes.Type(name = "<", value = DeltaBinaryOperatorFilter.DeltaLessThanFilter.class),
+    @JsonSubTypes.Type(name = "<=", value = DeltaBinaryOperatorFilter.DeltaLessThanOrEqualsFilter.class),
     @JsonSubTypes.Type(name = "and", value = DeltaAndFilter.class),
     @JsonSubTypes.Type(name = "or", value = DeltaOrFilter.class),
-    @JsonSubTypes.Type(name = "not", value = DeltaOrFilter.class),
+    @JsonSubTypes.Type(name = "not", value = DeltaNotFilter.class),
+//    @JsonSubTypes.Type(name = "binary", value = DeltaBinaryOperatorFilter.class), // seems slightly weird
 })
 public interface DeltaFilter
 {

@@ -18,7 +18,7 @@
 import os
 
 import argparse
-import delta
+from delta import *
 import pyspark
 from pyspark.sql.types import StructType, StructField, ShortType, StringType, TimestampType, LongType, IntegerType, DoubleType, FloatType, DateType, BooleanType
 from datetime import datetime, timedelta
@@ -34,7 +34,7 @@ def config_spark_with_delta_lake():
             "org.apache.spark.sql.delta.catalog.DeltaCatalog",
         )
     )
-    spark = delta.configure_spark_with_delta_pip(builder).getOrCreate()
+    spark = configure_spark_with_delta_pip(builder).getOrCreate()
     spark.sparkContext.setLogLevel("ERROR")
     return spark
 
@@ -96,10 +96,12 @@ def main():
 
     parser.add_argument('--save_mode', choices=('append', 'overwrite'), default="overwrite",
                         help="Specify write mode (append/overwrite)")
-    parser.add_argument('--save_path', default=os.path.join(os.getcwd(), "employee-delta-table-partitioned-2"),
+    parser.add_argument('--save_path', default=os.path.join(os.getcwd(), "march-employee-delta-table-partitioned"),
                         help="Save path for Delta table")
     parser.add_argument('--num_records', type=int, default=10,
                         help="Specify number of Delta records to write")
+    parser.add_argument('--num_partitions', type=int, default=10,
+                        help="Specify number of Delta partitions to write")
 
     args = parser.parse_args()
 

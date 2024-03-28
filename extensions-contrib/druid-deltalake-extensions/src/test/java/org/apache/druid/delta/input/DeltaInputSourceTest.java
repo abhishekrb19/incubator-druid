@@ -21,13 +21,21 @@ package org.apache.druid.delta.input;
 
 import com.google.common.collect.ImmutableList;
 import io.delta.kernel.expressions.AlwaysTrue;
+import org.apache.druid.data.input.ColumnsFilter;
 import org.apache.druid.data.input.InputRow;
 import org.apache.druid.data.input.InputRowListPlusRawValues;
 import org.apache.druid.data.input.InputRowSchema;
 import org.apache.druid.data.input.InputSourceReader;
 import org.apache.druid.data.input.InputSplit;
+import org.apache.druid.data.input.impl.DimensionsSpec;
+import org.apache.druid.data.input.impl.DoubleDimensionSchema;
+import org.apache.druid.data.input.impl.FloatDimensionSchema;
+import org.apache.druid.data.input.impl.LongDimensionSchema;
+import org.apache.druid.data.input.impl.StringDimensionSchema;
+import org.apache.druid.data.input.impl.TimestampSpec;
 import org.apache.druid.delta.filter.DeltaAndFilter;
 import org.apache.druid.delta.filter.DeltaBinaryOperatorFilter;
+import org.apache.druid.delta.filter.DeltaFilter;
 import org.apache.druid.delta.filter.DeltaNotFilter;
 import org.apache.druid.error.DruidException;
 import org.apache.druid.error.DruidExceptionMatcher;
@@ -50,6 +58,101 @@ public class DeltaInputSourceTest
   public void setUp()
   {
     System.setProperty("user.timezone", "UTC");
+  }
+
+  private final String OBSERVATIONS_DATA = "/Users/abhishek/Desktop/opensource-druid/druid/extensions-contrib/druid-deltalake-extensions/src/test/resources/observation_data";
+
+  private final InputRowSchema OBSERVATIONS_SCHEMA = new InputRowSchema(
+//        new TimestampSpec("timestamp", "auto", null),
+//      new TimestampSpec("date", "millis", null),
+      new TimestampSpec("date", "posix", null),
+      new DimensionsSpec(
+          ImmutableList.of(
+              new LongDimensionSchema("id"),
+              new LongDimensionSchema("birthday"),
+              new StringDimensionSchema("name"),
+              new LongDimensionSchema("age"),
+              new DoubleDimensionSchema("salary"),
+              new FloatDimensionSchema("bonus"),
+              new LongDimensionSchema("yoe"),
+              new StringDimensionSchema("is_fulltime"),
+              new LongDimensionSchema("last_vacation_time")
+          )
+      ),
+      ColumnsFilter.all()
+  );
+
+  @Test
+  public void testSampleObservationDeltaTable() throws IOException
+  {
+    final DeltaInputSource deltaInputSource = new DeltaInputSource(OBSERVATIONS_DATA, null, null);
+
+    final InputSourceReader inputSourceReader = deltaInputSource.reader(OBSERVATIONS_SCHEMA, null, null);
+
+    List<InputRowListPlusRawValues> actualSampledRows = sampleAllRows(inputSourceReader);
+    System.out.println("Sampled rows count" + actualSampledRows.size());
+//    Assert.assertEquals(DeltaTestUtils.EXPECTED_ROWS.size(), actualSampledRows.size());
+
+    for (InputRowListPlusRawValues sampledRow : actualSampledRows) {
+      System.out.println("Sampled row: " + sampledRow.getRawValues());
+//    }
+//
+//    for (int idx = 0; idx < DeltaTestUtils.EXPECTED_ROWS.size(); idx++) {
+//      Map<String, Object> expectedRow = DeltaTestUtils.EXPECTED_ROWS.get(idx);
+//      InputRowListPlusRawValues actualSampledRow = actualSampledRows.get(idx);
+//      Assert.assertNull(actualSampledRow.getParseException());
+//
+//      Map<String, Object> actualSampledRawVals = actualSampledRow.getRawValues();
+//      Assert.assertNotNull(actualSampledRawVals);
+//      Assert.assertNotNull(actualSampledRow.getRawValuesList());
+//      Assert.assertEquals(1, actualSampledRow.getRawValuesList().size());
+//
+//      for (String key : expectedRow.keySet()) {
+//        if (DeltaTestUtils.FULL_SCHEMA.getTimestampSpec().getTimestampColumn().equals(key)) {
+//          final long expectedMillis = (Long) expectedRow.get(key);
+//          Assert.assertEquals(expectedMillis, actualSampledRawVals.get(key));
+//        } else {
+//          Assert.assertEquals(expectedRow.get(key), actualSampledRawVals.get(key));
+//        }
+//      }
+//    }
+    }
+  }
+
+  @Test
+  public void testReadAllObservationsTable() throws IOException
+  {
+    final DeltaInputSource deltaInputSource = new DeltaInputSource(OBSERVATIONS_DATA, null, null);
+    final InputSourceReader inputSourceReader = deltaInputSource.reader(
+        OBSERVATIONS_SCHEMA,
+        null,
+        null
+    );
+    final List<InputRow> actualReadRows = readAllRows(inputSourceReader);
+    System.out.println("Actual read rows count: " + actualReadRows.size());
+    for (InputRow inputRow: actualReadRows) {
+      System.out.println("Input row:" + inputRow.getTimestamp());
+    }
+    System.out.println("Actual read rows count: " + actualReadRows.size());
+  }
+
+  @Test
+  public void testReadAllObservationsTableWithTimeFilter() throws IOException
+  {
+//    final DeltaFilter timeFilter =f new DeltaBinaryOperatorFilter.DeltaEqualsFilter("date", "1704412800");
+    final DeltaFilter timeFilter = new DeltaBinaryOperatorFilter.DeltaEqualsFilter("date", "2024-01-10");
+    final DeltaInputSource deltaInputSource = new DeltaInputSource(OBSERVATIONS_DATA, null, timeFilter);
+    final InputSourceReader inputSourceReader = deltaInputSource.reader(
+        OBSERVATIONS_SCHEMA,
+        null,
+        null
+    );
+    final List<InputRow> actualReadRows = readAllRows(inputSourceReader);
+    System.out.println("Actual read rows count: " + actualReadRows.size());
+    for (InputRow inputRow: actualReadRows) {
+      System.out.println("Input row:" + inputRow.getTimestamp());
+    }
+    System.out.println("Actual read rows count: " + actualReadRows.size());
   }
 
   @Test
@@ -217,6 +320,36 @@ public class DeltaInputSourceTest
     final List<InputRow> actualReadRows = readAllRows(inputSourceReader);
     printActualRows(actualReadRows);
 //    validateRows(DeltaTestUtils.EXPECTED_ROWS, actualReadRows, DeltaTestUtils.SCHEMA_1);
+  }
+
+  @Test
+  public void testDeltaLakeWithCreateSplitsWithNotFilter()
+  {
+    final DeltaFilter notFilter = new DeltaNotFilter(
+        new DeltaBinaryOperatorFilter("=", "name", "Employee1")
+    );
+
+    final DeltaInputSource deltaInputSource = new DeltaInputSource(
+        "src/test/resources/employee-delta-table-partitioned-2",
+        null,
+        notFilter
+    );
+    final List<InputSplit<DeltaSplit>> splits = deltaInputSource.createSplits(null, null)
+                                                                .collect(Collectors.toList());
+    Assert.assertEquals(DeltaTestUtils.SPLIT_TO_EXPECTED_ROWS.size(), splits.size());
+
+    for (InputSplit<DeltaSplit> split : splits) {
+      final DeltaSplit deltaSplit = split.get();
+      final DeltaInputSource deltaInputSourceWithSplit = new DeltaInputSource(
+          DeltaTestUtils.DELTA_TABLE_PATH,
+          deltaSplit,
+          notFilter
+      );
+      List<InputSplit<DeltaSplit>> splitsResult = deltaInputSourceWithSplit.createSplits(null, null)
+                                                                           .collect(Collectors.toList());
+      Assert.assertEquals(1, splitsResult.size());
+      Assert.assertEquals(deltaSplit, splitsResult.get(0).get());
+    }
   }
 
   @Test

@@ -31,23 +31,23 @@ import java.util.List;
 public class DeltaAndFilter implements DeltaFilter
 {
   @JsonProperty
-  private final List<DeltaFilter> filters;
+  private final List<DeltaFilter> predicates;
 
   @JsonCreator
   public DeltaAndFilter(
-      @JsonProperty("filters") List<DeltaFilter> filters
+      @JsonProperty("predicates") List<DeltaFilter> predicates
   )
   {
-    if (filters == null) {
-      throw InvalidInput.exception("filters[%s] is invalid. Delta and filter requires 2 filters", filters);
+    if (predicates == null) {
+      throw InvalidInput.exception("predicates must be non-empty. Delta and filter requires 2 fields.");
     }
-    if (filters.size() != 2) {
+    if (predicates.size() != 2) {
       throw InvalidInput.exception(
           "Delta and filter requires 2 fields, but provided [%d].",
-          filters.size()
+          predicates.size()
       );
     }
-    this.filters = filters;
+    this.predicates = predicates;
   }
 
   @Override
@@ -55,8 +55,8 @@ public class DeltaAndFilter implements DeltaFilter
   {
     // Maybe do a nested / recursive flatten?
     return new And(
-      filters.get(0).getFilterPredicate(snapshotSchema),
-      filters.get(1).getFilterPredicate(snapshotSchema)
+        predicates.get(0).getFilterPredicate(snapshotSchema),
+        predicates.get(1).getFilterPredicate(snapshotSchema)
     );
   }
 }
