@@ -118,6 +118,7 @@ export type InputSourceDesc =
   | {
       type: 'delta';
       tablePath?: string;
+      filter: string;
     }
   | {
       type: 'sql';
@@ -621,9 +622,29 @@ export const INPUT_SOURCE_FIELDS: Field<InputSource>[] = [
     name: 'tablePath',
     label: 'Delta table path',
     type: 'string',
-    placeholder: '/path/to/deltaTable',
+    placeholder: '/path/toooo/deltaTable',
     defined: typeIsKnown(KNOWN_TYPES, 'delta'),
     required: true,
+  },
+  {
+    name: 'objects',
+    label: 'Delta filter',
+    type: 'json',
+    placeholder: '{"bucket":"your-storage-account", "path":"your-container/some-file.ext"}',
+    defined: inputSource => inputSource.type === 'delta' && deepGet(inputSource, 'objects'),
+    required: false,
+    info: (
+      <>
+        <p>
+          JSON array of{' '}
+          <ExternalLink href={`${getLink('DOCS')}/development/extensions-core/azure.html`}>
+            S3 Objects
+          </ExternalLink>
+          .
+        </p>
+        <p>Delta filter.</p>
+      </>
+    ),
   },
 
   // sql
