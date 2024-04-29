@@ -90,6 +90,7 @@ public class CoordinatorResource
       return Response.ok(coordinator.getDatasourceToUnavailableSegmentCount()).build();
     }
 
+    // some comment
     if (full != null) {
       return Response.ok(
           coordinator.getTierToDatasourceToUnderReplicatedCount(computeUsingClusterView != null)
