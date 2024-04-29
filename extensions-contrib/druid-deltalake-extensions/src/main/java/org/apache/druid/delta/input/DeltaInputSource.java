@@ -114,7 +114,7 @@ public class DeltaInputSource implements SplittableInputSource<DeltaSplit>
   @Override
   public boolean needsFormat()
   {
-    // Only support Parquet
+    // Only support Parquet.
     return false;
   }
 
