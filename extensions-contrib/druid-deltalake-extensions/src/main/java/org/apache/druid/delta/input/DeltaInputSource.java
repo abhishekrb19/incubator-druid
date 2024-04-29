@@ -119,6 +119,7 @@ public class DeltaInputSource implements SplittableInputSource<DeltaSplit>
     try {
       final List<CloseableIterator<FilteredColumnarBatch>> scanFileDataIters = new ArrayList<>();
 
+      // comment to trigger GHA run
       if (deltaSplit != null) {
         final Row scanState = deserialize(tableClient, deltaSplit.getStateRow());
         final StructType physicalReadSchema =
