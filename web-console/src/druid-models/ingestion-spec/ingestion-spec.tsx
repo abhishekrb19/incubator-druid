@@ -1021,7 +1021,6 @@ export function getIoConfigFormFields(ingestionComboType: IngestionComboType): F
         inputSourceFilter,
       ];
 
-    // https://druid.apache.org/docs/latest/ingestion/input-sources#iceberg-filter-object
     case 'index_parallel:delta':
       return [
         inputSourceType,
@@ -1029,8 +1028,13 @@ export function getIoConfigFormFields(ingestionComboType: IngestionComboType): F
           name: 'inputSource.tablePath',
           label: 'Delta table path',
           type: 'string',
-          placeholder: '/path/tooo/deltaTable',
+          placeholder: '/path/to/deltaTable',
           required: true,
+          info: (
+            <>
+              <p>A full path to the Delta Lake table.</p>
+            </>
+          ),
         },
         {
           name: 'inputSource.filter',
@@ -1040,13 +1044,11 @@ export function getIoConfigFormFields(ingestionComboType: IngestionComboType): F
           info: (
             <>
               <ExternalLink
-                href={`${getLink(
-                  'DOCS',
-                )}/development/ingestion/input-sources#iceberg-filter-object`}
+                href={`${getLink('DOCS')}/ingestion/input-sources/#delta-filter-object`}
               >
-                consumerProperties
+                filter
               </ExternalLink>
-              <p>A map of properties to be passed to the Kafka consumer.</p>
+              <p>A Delta filter json object to filter Delta Lake scan files.</p>
             </>
           ),
         },
