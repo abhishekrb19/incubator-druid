@@ -39,8 +39,10 @@ jobs:
           filters: |
             common-extensions:
               - 'extension-core/(mysql-metadata-storage|druid-basic-security|simple-client-sslcontext|druid-testing-tools|druid-lookups-cached-global|druid-histogram|druid-datasketches|druid-parquet-extensions|druid-avro-extensions|druid-protobuf-extensions|druid-orc-extensions|druid-kafka-indexing-service|druid-s3-extensions)/**'
+              - '!docs/**'
             core:
               - '!extension*/**'
+              - '!docs/**'
 
   integration-index-tests-middleManager:
     needs: changes
