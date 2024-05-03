@@ -57,5 +57,3 @@ See [Loading community extensions](../../configuration/extensions.md#loading-com
 
 This extension relies on the Delta Kernel API and can only read from the latest Delta table snapshot. Ability to read from 
 arbitrary snapshots is tracked [here](https://github.com/delta-io/delta/issues/2581).
-
-Please see above.
