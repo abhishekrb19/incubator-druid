@@ -159,6 +159,7 @@ public class DeltaInputSource implements SplittableInputSource<DeltaSplit>
         );
 
         final ScanBuilder scanBuilder = latestSnapshot.getScanBuilder(tableClient);
+        // dummy comment
         if (filter != null) {
           scanBuilder.withFilter(tableClient, filter.getFilterPredicate(fullSnapshotSchema));
         }
