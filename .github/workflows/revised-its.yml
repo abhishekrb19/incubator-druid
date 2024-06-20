@@ -40,8 +40,10 @@ jobs:
           filters: |
             common-extensions:
               - 'extension-core/(mysql-metadata-storage|druid-it-tools|druid-lookups-cached-global|druid-histogram|druid-datasketches|druid-parquet-extensions|druid-avro-extensions|druid-protobuf-extensions|druid-orc-extensions|druid-kafka-indexing-service|druid-s3-extensions|druid-multi-stage-query|druid-catalog)/**'
+              - '!docs/**'
             core:
               - '!extension*/**'
+              - '!docs/**'
 
   it:
     needs: changes

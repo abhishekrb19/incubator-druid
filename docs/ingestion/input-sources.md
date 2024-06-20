@@ -1138,7 +1138,7 @@ This input source provides the following filters: `and`, `equals`, `interval`, a
 To use the Delta Lake input source, load the extension [`druid-deltalake-extensions`](../development/extensions-contrib/delta-lake.md).
 :::
 
-You can use the Delta input source to read data stored in a Delta Lake table. For a given table, the input source scans
+You can use the Delta input source to read data stored in a configured Delta Lake table. For a given table, the input source scans
 the latest snapshot from the configured table. Druid ingests the underlying delta files from the table.
 
  | Property|Description|Required|
@@ -1225,7 +1225,7 @@ The following is a sample spec to read all records from the Delta table `/delta-
 ```json
 ...
     "ioConfig": {
-      "type": "index_parallel",
+      "type": "index_parallellll",
       "inputSource": {
         "type": "delta",
         "tablePath": "/delta-table/foo"
