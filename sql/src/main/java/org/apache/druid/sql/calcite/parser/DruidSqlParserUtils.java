@@ -311,7 +311,7 @@ public class DruidSqlParserUtils
       return ImmutableList.of(ALL);
     }
 
-    DimFilter dimFilter = convertQueryToDimFilter(replaceTimeQuery, dateTimeZone);
+    DimFilter dimFilter = convertQueryToDimFilter(replaceTimeQuery, dateTimeZone, granularity);
 
     Filtration filtration = Filtration.create(dimFilter);
     filtration = MoveTimeFiltersToIntervals.instance().apply(filtration);
@@ -500,10 +500,11 @@ public class DruidSqlParserUtils
    *
    * @param replaceTimeQuery Sql node representing the query
    * @param dateTimeZone     timezone
+   * @param granularity
    * @return Dimfilter for the query
    * @throws DruidException if the SqlNode cannot be converted a Dimfilter
    */
-  private static DimFilter convertQueryToDimFilter(SqlNode replaceTimeQuery, DateTimeZone dateTimeZone)
+  private static DimFilter convertQueryToDimFilter(SqlNode replaceTimeQuery, DateTimeZone dateTimeZone, Granularity granularity)
   {
     if (!(replaceTimeQuery instanceof SqlBasicCall)) {
       throw InvalidSqlInput.exception(
@@ -520,22 +521,24 @@ public class DruidSqlParserUtils
         case AND:
           List<DimFilter> dimFilters = new ArrayList<>();
           for (SqlNode sqlNode : sqlBasicCall.getOperandList()) {
-            dimFilters.add(convertQueryToDimFilter(sqlNode, dateTimeZone));
+            dimFilters.add(convertQueryToDimFilter(sqlNode, dateTimeZone, granularity));
           }
           return new AndDimFilter(dimFilters);
         case OR:
           dimFilters = new ArrayList<>();
           for (SqlNode sqlNode : sqlBasicCall.getOperandList()) {
-            dimFilters.add(convertQueryToDimFilter(sqlNode, dateTimeZone));
+            dimFilters.add(convertQueryToDimFilter(sqlNode, dateTimeZone, granularity));
           }
           return new OrDimFilter(dimFilters);
         case NOT:
-          return new NotDimFilter(convertQueryToDimFilter(sqlBasicCall.getOperandList().get(0), dateTimeZone));
+          return new NotDimFilter(convertQueryToDimFilter(sqlBasicCall.getOperandList().get(0), dateTimeZone,
+                                                          granularity
+          ));
         case GREATER_THAN_OR_EQUAL:
           columnName = parseColumnName(operandList.get(0));
           return new BoundDimFilter(
               columnName,
-              parseTimeStampWithTimeZone(operandList.get(1), dateTimeZone),
+              parseTimeStampWithTimeZone(operandList.get(1), dateTimeZone, granularity),
               null,
               false,
               null,
@@ -548,7 +551,7 @@ public class DruidSqlParserUtils
           return new BoundDimFilter(
               columnName,
               null,
-              parseTimeStampWithTimeZone(operandList.get(1), dateTimeZone),
+              parseTimeStampWithTimeZone(operandList.get(1), dateTimeZone, granularity),
               null,
               false,
               null,
@@ -559,7 +562,7 @@ public class DruidSqlParserUtils
           columnName = parseColumnName(operandList.get(0));
           return new BoundDimFilter(
               columnName,
-              parseTimeStampWithTimeZone(operandList.get(1), dateTimeZone),
+              parseTimeStampWithTimeZone(operandList.get(1), dateTimeZone, granularity),
               null,
               true,
               null,
@@ -572,7 +575,7 @@ public class DruidSqlParserUtils
           return new BoundDimFilter(
               columnName,
               null,
-              parseTimeStampWithTimeZone(operandList.get(1), dateTimeZone),
+              parseTimeStampWithTimeZone(operandList.get(1), dateTimeZone, granularity),
               null,
               true,
               null,
@@ -583,8 +586,8 @@ public class DruidSqlParserUtils
           columnName = parseColumnName(operandList.get(0));
           return new BoundDimFilter(
               columnName,
-              parseTimeStampWithTimeZone(operandList.get(1), dateTimeZone),
-              parseTimeStampWithTimeZone(operandList.get(2), dateTimeZone),
+              parseTimeStampWithTimeZone(operandList.get(1), dateTimeZone, granularity),
+              parseTimeStampWithTimeZone(operandList.get(2), dateTimeZone, granularity),
               false,
               false,
               null,
@@ -621,12 +624,13 @@ public class DruidSqlParserUtils
   /**
    * Converts a {@link SqlNode} into a timestamp, taking into account the timezone
    *
-   * @param sqlNode  the SQL node
-   * @param timeZone timezone
+   * @param sqlNode     the SQL node
+   * @param timeZone    timezone
+   * @param granularity
    * @return the timestamp string as milliseconds from epoch
    * @throws DruidException if the SQL node is not a SqlTimestampLiteral
    */
-  static String parseTimeStampWithTimeZone(SqlNode sqlNode, DateTimeZone timeZone)
+  static String parseTimeStampWithTimeZone(SqlNode sqlNode, DateTimeZone timeZone, Granularity granularity)
   {
     Timestamp sqlTimestamp;
     ZonedDateTime zonedTimestamp;
@@ -653,7 +657,7 @@ public class DruidSqlParserUtils
       } else {
         currentDateTime = LocalDate.now().toDateTimeAtCurrentTime();
       }
-      return String.valueOf(currentDateTime.toDateTimeAtStartOfDay().getMillis());
+      return String.valueOf(currentDateTime.getMillis());
     }
 
     if (sqlNode instanceof SqlBasicCall) {

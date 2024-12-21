@@ -26,7 +26,6 @@ import org.apache.calcite.runtime.PairList;
 import org.apache.calcite.sql.SqlAsOperator;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlIdentifier;
-import org.apache.calcite.sql.SqlIntervalLiteral;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
@@ -48,15 +47,12 @@ import org.apache.druid.sql.calcite.planner.DruidTypeSystem;
 import org.hamcrest.MatcherAssert;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.joda.time.LocalDate;
 import org.joda.time.Period;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import java.math.BigDecimal;
-import java.time.ZonedDateTime;
 import java.util.Arrays;
 
 public class DruidSqlParserUtilsTest
@@ -473,7 +469,8 @@ public class DruidSqlParserUtilsTest
               DruidTypeSystem.DEFAULT_TIMESTAMP_PRECISION,
               SqlParserPos.ZERO
           ),
-          DateTimeZone.UTC
+          DateTimeZone.UTC,
+          null
       );
 
       Assert.assertEquals(String.valueOf(ts.getMillis()), s);
@@ -491,7 +488,8 @@ public class DruidSqlParserUtilsTest
               DruidTypeSystem.DEFAULT_TIMESTAMP_PRECISION,
               SqlParserPos.ZERO
           ),
-          TZ_LOS_ANGELES
+          TZ_LOS_ANGELES,
+          null
       );
 
       Assert.assertEquals(String.valueOf(ts.getMillis()), s);
@@ -509,7 +507,8 @@ public class DruidSqlParserUtilsTest
               DruidTypeSystem.DEFAULT_TIMESTAMP_PRECISION,
               SqlParserPos.ZERO
           ),
-          DateTimeZone.UTC
+          DateTimeZone.UTC,
+          null
       );
 
       Assert.assertEquals(String.valueOf(ts.getMillis()), s);
@@ -527,7 +526,8 @@ public class DruidSqlParserUtilsTest
               DruidTypeSystem.DEFAULT_TIMESTAMP_PRECISION,
               SqlParserPos.ZERO
           ),
-          TZ_LOS_ANGELES
+          TZ_LOS_ANGELES,
+          null
       );
 
       Assert.assertEquals(String.valueOf(ts.getMillis()), s);
@@ -544,7 +544,8 @@ public class DruidSqlParserUtilsTest
               Calcites.jodaToCalciteTimestampString(ts, DateTimeZone.UTC).toString(),
               SqlParserPos.ZERO
           ),
-          DateTimeZone.UTC
+          DateTimeZone.UTC,
+          null
       );
 
       Assert.assertEquals(String.valueOf(ts.getMillis()), s);
@@ -601,7 +602,8 @@ public class DruidSqlParserUtilsTest
               Calcites.jodaToCalciteTimestampString(ts, DateTimeZone.UTC).toString(),
               SqlParserPos.ZERO
           ),
-          DateTimeZone.UTC
+          DateTimeZone.UTC,
+          null
       );
 
       Assert.assertEquals(String.valueOf(ts.getMillis()), s);
@@ -618,7 +620,8 @@ public class DruidSqlParserUtilsTest
               Calcites.jodaToCalciteTimestampString(ts, TZ_LOS_ANGELES).toString(),
               SqlParserPos.ZERO
           ),
-          TZ_LOS_ANGELES
+          TZ_LOS_ANGELES,
+          null
       );
 
       Assert.assertEquals(String.valueOf(ts.getMillis()), s);
@@ -635,7 +638,8 @@ public class DruidSqlParserUtilsTest
               Calcites.jodaToCalciteTimestampString(ts, TZ_LOS_ANGELES).toString(),
               SqlParserPos.ZERO
           ),
-          TZ_LOS_ANGELES
+          TZ_LOS_ANGELES,
+          null
       );
 
       Assert.assertEquals(String.valueOf(ts.getMillis()), s);
@@ -652,7 +656,8 @@ public class DruidSqlParserUtilsTest
                   "not a timestamp",
                   SqlParserPos.ZERO
               ),
-              DateTimeZone.UTC
+              DateTimeZone.UTC,
+              null
           )
       );
 
