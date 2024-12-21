@@ -647,8 +647,13 @@ public class DruidSqlParserUtils
     }
 
     if (sqlNode instanceof SqlIdentifier && ("CURRENT_DATE".equalsIgnoreCase(((SqlIdentifier) sqlNode).getSimple()) || "CURRENT_TIMESTAMP".equalsIgnoreCase(((SqlIdentifier) sqlNode).getSimple()))) {
-      LocalDate currentDate = LocalDate.now();
-      return String.valueOf(currentDate.toDateTimeAtStartOfDay().getMillis());
+      final DateTime currentDateTime;
+      if ("CURRENT_DATE".equalsIgnoreCase(((SqlIdentifier) sqlNode).getSimple())) {
+        currentDateTime = LocalDate.now().toDateTimeAtStartOfDay();
+      } else {
+        currentDateTime = LocalDate.now().toDateTimeAtCurrentTime();
+      }
+      return String.valueOf(currentDateTime.toDateTimeAtStartOfDay().getMillis());
     }
 
     if (sqlNode instanceof SqlBasicCall) {
@@ -661,14 +666,22 @@ public class DruidSqlParserUtils
 
           if (leftOperand instanceof SqlIdentifier
             && ("CURRENT_DATE".equalsIgnoreCase(((SqlIdentifier) leftOperand).getSimple()) || "CURRENT_TIMESTAMP".equalsIgnoreCase(((SqlIdentifier) leftOperand).getSimple()))) {
-          DateTime currentDate = LocalDate.now().toDateTimeAtStartOfDay();
+
+            final DateTime currentDateTime;
+            if ("CURRENT_DATE".equalsIgnoreCase(((SqlIdentifier) leftOperand).getSimple())) {
+              currentDateTime = LocalDate.now().toDateTimeAtStartOfDay();
+            } else {
+              currentDateTime = LocalDate.now().toDateTimeAtCurrentTime();
+            }
+
           Duration duration = extractInterval(rightOperand);
 
+          LocalDate.now().toDateTimeAtCurrentTime();
           final DateTime adjustedDate;
           if (SqlStdOperatorTable.PLUS.equals(operator)) {
-            adjustedDate = currentDate.plus(duration.toMillis());
+            adjustedDate = currentDateTime.plus(duration.toMillis());
           } else {
-            adjustedDate = currentDate.minus(duration.toMillis());
+            adjustedDate = currentDateTime.minus(duration.toMillis());
           }
           return String.valueOf(adjustedDate.getMillis());
         }
