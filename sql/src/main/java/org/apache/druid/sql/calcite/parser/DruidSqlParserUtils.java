@@ -26,6 +26,7 @@ import org.apache.calcite.sql.SqlAsOperator;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlIntervalLiteral;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
@@ -58,11 +59,13 @@ import org.apache.druid.sql.calcite.filtration.MoveTimeFiltersToIntervals;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.Interval;
+import org.joda.time.LocalDate;
 import org.joda.time.Period;
 import org.joda.time.base.AbstractInterval;
 
 import javax.annotation.Nullable;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -641,6 +644,42 @@ public class DruidSqlParserUtils
       zonedTimestamp = sqlTimestamp.toLocalDateTime().atZone(timeZone.toTimeZone().toZoneId());
       return String.valueOf(zonedTimestamp.toInstant().toEpochMilli());
     }
+
+    if (sqlNode instanceof SqlIdentifier && "CURRENT_DATE".equalsIgnoreCase(((SqlIdentifier) sqlNode).getSimple())) {
+      LocalDate currentDate = LocalDate.now();
+      return String.valueOf(currentDate.toDateTimeAtStartOfDay().getMillis());
+    }
+
+    if (sqlNode instanceof SqlBasicCall) {
+      SqlBasicCall basicCall = (SqlBasicCall) sqlNode;
+
+      final String operator = basicCall.getOperator().getName();
+      if ("-".equals(operator) || "+".equals(operator)) {
+        SqlNode leftOperand = basicCall.getOperandList().get(0);
+        SqlNode rightOperand = basicCall.getOperandList().get(1);
+
+          if (leftOperand instanceof SqlIdentifier
+            && "CURRENT_DATE".equalsIgnoreCase(((SqlIdentifier) leftOperand).getSimple())) {
+          DateTime currentDate = LocalDate.now().toDateTimeAtStartOfDay();
+          Duration duration = extractInterval(rightOperand);
+
+          final DateTime adjustedDate;
+          if ("+".equals(operator)) {
+            adjustedDate = currentDate.plus(duration.toMillis());
+          } else {
+            adjustedDate = currentDate.minus(duration.toMillis());
+          }
+          return String.valueOf(adjustedDate.getMillis());
+        }
+      } else {
+        throw InvalidSqlInput.exception(
+            "Invalid operator[%s] specified in the OVERWRITE WHERE clause[%s]. CURRENT_DATE only supports INTERVAL +/- operators.",
+            basicCall.getOperator(),
+            sqlNode
+        );
+      }
+    }
+
     if (!(sqlNode instanceof SqlTimestampLiteral)) {
       throw InvalidSqlInput.exception("Cannot get a timestamp from sql expression [%s]", sqlNode);
     }
@@ -659,6 +698,45 @@ public class DruidSqlParserUtils
       throw makeInvalidPartitionByException(originalNode);
     }
   }
+
+  private static Duration extractInterval(SqlNode intervalNode) {
+    if (intervalNode instanceof SqlIntervalLiteral) {
+      SqlIntervalLiteral intervalLiteral = (SqlIntervalLiteral) intervalNode;
+      SqlIntervalLiteral.IntervalValue intervalValue = (SqlIntervalLiteral.IntervalValue) intervalLiteral.getValue();
+
+      int sign = intervalValue.getSign(); // Get the sign (+1 or -1)
+      String intervalStr = intervalValue.getIntervalLiteral(); // Interval value as a string
+
+      // Parse the numeric value of the interval
+      int intervalValueInt = Integer.parseInt(intervalStr);
+      int adjustedValue = sign * intervalValueInt; // Apply the sign to the interval
+
+      // Determine the time unit and convert to the appropriate Duration
+      switch (intervalValue.getIntervalQualifier().timeUnitRange) {
+        case SECOND:
+          return Duration.ofSeconds(adjustedValue);
+        case MINUTE:
+          return Duration.ofSeconds(adjustedValue * 60L);
+        case HOUR:
+          return Duration.ofSeconds(adjustedValue * 3600L);
+        case DAY:
+          return Duration.ofSeconds(adjustedValue * 86400L);
+        case MONTH:
+          // Approximate: 1 month = 30 days
+          return Duration.ofSeconds(adjustedValue * 30L * 86400L);
+        case YEAR:
+          // Approximate: 1 year = 365 days
+          return Duration.ofSeconds(adjustedValue * 365L * 86400L);
+        default:
+          throw InvalidSqlInput.exception(
+              "Unsupported time unit [%s]",
+              intervalValue.getIntervalQualifier().timeUnitRange
+          );
+      }
+    }
+    throw InvalidSqlInput.exception("Cannot parse interval from sql expression [%s]", intervalNode);
+  }
+
 
 
   public static DruidException problemParsing(String message)

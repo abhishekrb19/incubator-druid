@@ -26,6 +26,7 @@ import org.apache.calcite.runtime.PairList;
 import org.apache.calcite.sql.SqlAsOperator;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlIntervalLiteral;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
@@ -47,12 +48,15 @@ import org.apache.druid.sql.calcite.planner.DruidTypeSystem;
 import org.hamcrest.MatcherAssert;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.joda.time.LocalDate;
 import org.joda.time.Period;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
+import java.math.BigDecimal;
+import java.time.ZonedDateTime;
 import java.util.Arrays;
 
 public class DruidSqlParserUtilsTest
@@ -545,6 +549,46 @@ public class DruidSqlParserUtilsTest
 
       Assert.assertEquals(String.valueOf(ts.getMillis()), s);
     }
+//
+//    @Test
+//    public void test_parseDateTimeWithTimeZone_sqlBasicCall()
+//    {
+//      // Simulate CURRENT_DATE - INTERVAL '1' MONTH
+//      final SqlIdentifier currentDate = new SqlIdentifier("CURRENT_DATE", SqlParserPos.ZERO);
+//
+//      // Create the interval qualifier for MONTH
+//      final SqlIntervalQualifier intervalQualifier = new SqlIntervalQualifier(
+//          TimeUnit.MONTH,
+//          null,
+//          SqlParserPos.ZERO
+//      );
+//
+//      // Use the public constructor of SqlIntervalLiteral to create INTERVAL '1' MONTH
+//      final SqlIntervalLiteral interval = new SqlIntervalLiteral(
+//          new SqlIntervalLiteral.IntervalValue(intervalQualifier, 1, "1"),
+//          SqlTypeName.INTERVAL_MONTH,
+//          SqlParserPos.ZERO
+//      );
+//
+//      // Construct the SqlBasicCall representing CURRENT_DATE - INTERVAL '1' MONTH
+//      final SqlBasicCall sqlBasicCall = new SqlBasicCall(
+//          SqlStdOperatorTable.MINUS, // Subtraction operator
+//          new SqlNode[]{currentDate, interval}, // Operands
+//          SqlParserPos.ZERO
+//      );
+//
+//      // Pass the SqlBasicCall to your parsing utility
+//      final String result = DruidSqlParserUtils.parseTimeStampWithTimeZone(sqlBasicCall, DateTimeZone.UTC);
+//
+//      // Calculate the expected result
+//      LocalDate expectedDate = LocalDate.now().minusMonths(1);
+//      ZonedDateTime expectedDateTime = expectedDate.atStartOfDay(DateTimeZone.UTC.toTimeZone().toZoneId());
+//
+//      // Assert the results match
+//      Assert.assertEquals(String.valueOf(expectedDateTime.toInstant().toEpochMilli()), result);
+//    }
+
+
 
     @Test
     public void test_parseTimeStampWithTimeZone_unknownTimestampWithLocalTimeZone()
