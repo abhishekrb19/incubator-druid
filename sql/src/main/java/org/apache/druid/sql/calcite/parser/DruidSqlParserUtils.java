@@ -646,14 +646,9 @@ public class DruidSqlParserUtils
       return String.valueOf(zonedTimestamp.toInstant().toEpochMilli());
     }
 
-    if (sqlNode instanceof SqlIdentifier && ("CURRENT_DATE".equalsIgnoreCase(((SqlIdentifier) sqlNode).getSimple()) || "CURRENT_TIMESTAMP".equalsIgnoreCase(((SqlIdentifier) sqlNode).getSimple()))) {
-      final DateTime currentDateTime;
-      if ("CURRENT_DATE".equalsIgnoreCase(((SqlIdentifier) sqlNode).getSimple())) {
-        currentDateTime = LocalDate.now().toDateTimeAtStartOfDay();
-      } else {
-        currentDateTime = LocalDate.now().toDateTimeAtCurrentTime();
-      }
-      return String.valueOf(currentDateTime.toDateTimeAtStartOfDay().getMillis());
+    if (sqlNode instanceof SqlIdentifier && ("CURRENT_DATE".equalsIgnoreCase(((SqlIdentifier) sqlNode).getSimple()))) {
+      final DateTime currentDateTime = LocalDate.now().toDateTimeAtStartOfDay();
+      return String.valueOf(currentDateTime.getMillis());
     }
 
     if (sqlNode instanceof SqlBasicCall) {
@@ -665,14 +660,8 @@ public class DruidSqlParserUtils
         SqlNode rightOperand = basicCall.getOperandList().get(1);
 
           if (leftOperand instanceof SqlIdentifier
-            && ("CURRENT_DATE".equalsIgnoreCase(((SqlIdentifier) leftOperand).getSimple()) || "CURRENT_TIMESTAMP".equalsIgnoreCase(((SqlIdentifier) leftOperand).getSimple()))) {
-
-            final DateTime currentDateTime;
-            if ("CURRENT_DATE".equalsIgnoreCase(((SqlIdentifier) leftOperand).getSimple())) {
-              currentDateTime = LocalDate.now().toDateTimeAtStartOfDay();
-            } else {
-              currentDateTime = LocalDate.now().toDateTimeAtCurrentTime();
-            }
+            && ("CURRENT_DATE".equalsIgnoreCase(((SqlIdentifier) leftOperand).getSimple()))) {
+            final DateTime currentDateTime = LocalDate.now().toDateTimeAtStartOfDay();
 
           Duration duration = extractInterval(rightOperand);
 
