@@ -655,7 +655,7 @@ public class DruidSqlParserUtils
       if ("CURRENT_DATE".equalsIgnoreCase(((SqlIdentifier) sqlNode).getSimple())) {
         currentDateTime = LocalDate.now().toDateTimeAtStartOfDay();
       } else {
-        currentDateTime = LocalDate.now().toDateTimeAtCurrentTime();
+        currentDateTime = granularity.bucketStart(LocalDate.now().toDateTimeAtCurrentTime());
       }
       return String.valueOf(currentDateTime.getMillis());
     }
@@ -675,12 +675,11 @@ public class DruidSqlParserUtils
             if ("CURRENT_DATE".equalsIgnoreCase(((SqlIdentifier) leftOperand).getSimple())) {
               currentDateTime = LocalDate.now().toDateTimeAtStartOfDay();
             } else {
-              currentDateTime = LocalDate.now().toDateTimeAtCurrentTime();
+              currentDateTime = granularity.bucketStart(LocalDate.now().toDateTimeAtCurrentTime());
             }
 
           Duration duration = extractInterval(rightOperand);
 
-          LocalDate.now().toDateTimeAtCurrentTime();
           final DateTime adjustedDate;
           if (SqlStdOperatorTable.PLUS.equals(operator)) {
             adjustedDate = currentDateTime.plus(duration.toMillis());
