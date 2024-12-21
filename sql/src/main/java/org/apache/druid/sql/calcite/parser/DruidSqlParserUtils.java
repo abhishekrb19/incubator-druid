@@ -33,6 +33,7 @@ import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlNumericLiteral;
+import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlOrderBy;
 import org.apache.calcite.sql.SqlTimestampLiteral;
 import org.apache.calcite.sql.SqlUnknownLiteral;
@@ -645,7 +646,7 @@ public class DruidSqlParserUtils
       return String.valueOf(zonedTimestamp.toInstant().toEpochMilli());
     }
 
-    if (sqlNode instanceof SqlIdentifier && "CURRENT_DATE".equalsIgnoreCase(((SqlIdentifier) sqlNode).getSimple())) {
+    if (sqlNode instanceof SqlIdentifier && ("CURRENT_DATE".equalsIgnoreCase(((SqlIdentifier) sqlNode).getSimple()) || "CURRENT_TIMESTAMP".equalsIgnoreCase(((SqlIdentifier) sqlNode).getSimple()))) {
       LocalDate currentDate = LocalDate.now();
       return String.valueOf(currentDate.toDateTimeAtStartOfDay().getMillis());
     }
@@ -653,18 +654,18 @@ public class DruidSqlParserUtils
     if (sqlNode instanceof SqlBasicCall) {
       SqlBasicCall basicCall = (SqlBasicCall) sqlNode;
 
-      final String operator = basicCall.getOperator().getName();
-      if ("-".equals(operator) || "+".equals(operator)) {
+      final SqlOperator operator = basicCall.getOperator();
+      if (SqlStdOperatorTable.PLUS.equals(operator) || SqlStdOperatorTable.MINUS.equals(operator)) {
         SqlNode leftOperand = basicCall.getOperandList().get(0);
         SqlNode rightOperand = basicCall.getOperandList().get(1);
 
           if (leftOperand instanceof SqlIdentifier
-            && "CURRENT_DATE".equalsIgnoreCase(((SqlIdentifier) leftOperand).getSimple())) {
+            && ("CURRENT_DATE".equalsIgnoreCase(((SqlIdentifier) leftOperand).getSimple()) || "CURRENT_TIMESTAMP".equalsIgnoreCase(((SqlIdentifier) leftOperand).getSimple()))) {
           DateTime currentDate = LocalDate.now().toDateTimeAtStartOfDay();
           Duration duration = extractInterval(rightOperand);
 
           final DateTime adjustedDate;
-          if ("+".equals(operator)) {
+          if (SqlStdOperatorTable.PLUS.equals(operator)) {
             adjustedDate = currentDate.plus(duration.toMillis());
           } else {
             adjustedDate = currentDate.minus(duration.toMillis());
