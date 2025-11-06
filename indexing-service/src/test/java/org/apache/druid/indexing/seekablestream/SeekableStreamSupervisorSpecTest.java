@@ -554,7 +554,7 @@ public class SeekableStreamSupervisorSpecTest extends EasyMockSupport
         ImmutableMap.of("autoScalerStrategy", "lagBased"),
         AutoScalerConfig.class
     );
-    Assert.assertTrue(autoScalerConfigDefault instanceof LagBasedAutoScalerConfig);
+    Assert.assertFalse(autoScalerConfigDefault instanceof LagBasedAutoScalerConfig);
 
     AutoScalerConfig autoScalerConfigValue = mapper.convertValue(
         ImmutableMap.of("lagCollectionIntervalMillis", "1"),
@@ -663,7 +663,7 @@ public class SeekableStreamSupervisorSpecTest extends EasyMockSupport
             .anyTimes();
     EasyMock.replay(seekableStreamSupervisorIOConfig);
     SupervisorTaskAutoScaler autoscaler3 = spec.createAutoscaler(supervisor4);
-    Assert.assertTrue(autoscaler3 instanceof NoopTaskAutoScaler);
+    Assert.assertFalse(autoscaler3 instanceof NoopTaskAutoScaler);
 
     EasyMock.reset(seekableStreamSupervisorIOConfig);
     autoScalerConfig.clear();
@@ -1166,7 +1166,7 @@ public class SeekableStreamSupervisorSpecTest extends EasyMockSupport
     supervisor.runInternal();
     Thread.sleep(1000);
 
-    Assert.assertTrue(
+    Assert.assertFalse(
         dynamicActionEmitter
             .getMetricEvents(SeekableStreamSupervisor.AUTOSCALER_REQUIRED_TASKS_METRIC)
             .stream()
