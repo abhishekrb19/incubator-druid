@@ -33,6 +33,7 @@ import org.apache.druid.segment.serde.StringUtf8DictionaryEncodedColumnSupplier;
 import org.apache.druid.segment.vector.NilVectorSelector;
 import org.apache.druid.segment.vector.NoFilterVectorOffset;
 import org.apache.druid.testing.InitializedNullHandlingTest;
+import org.apache.druid.utils.JvmUtils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -138,6 +139,10 @@ public class ValueMatchersTest extends InitializedNullHandlingTest
   @Test
   public void testNilVectorSelectorCanBeBoolean()
   {
+    if (JvmUtils.majorVersion() == 17) {
+      Assert.fail("This test is expected to fail on JDK 17");
+    }
+
     ConstantMatcherType resultMatchNull = ValueMatchers.toConstantMatcherTypeIfPossible(
         NilVectorSelector.create(new NoFilterVectorOffset(10, 0, 100)),
         false,
