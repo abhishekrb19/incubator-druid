@@ -23,11 +23,13 @@ import com.google.inject.Inject;
 import com.google.inject.Provider;
 import org.apache.druid.indexing.common.task.Task;
 import org.apache.druid.java.util.metrics.AbstractMonitor;
+import org.apache.druid.java.util.metrics.TaskHolder;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.lookup.LookupModule;
 import org.apache.druid.segment.transform.TransformSpec;
 import org.apache.druid.server.metrics.MetricsModule;
-import org.apache.druid.server.metrics.TaskHolder;
+
+import java.util.Map;
 
 /**
  * TaskHolder implementation for {@code CliPeon} processes.
@@ -58,5 +60,23 @@ public class PeonTaskHolder implements TaskHolder
   public String getTaskId()
   {
     return taskProvider.get().getId();
+  }
+
+  @Override
+  public String getTaskType()
+  {
+    return taskProvider.get().getType();
+  }
+
+  @Override
+  public String getGroupId()
+  {
+    return taskProvider.get().getGroupId();
+  }
+
+  @Override
+  public Map<String, String> getMetricDimensions()
+  {
+    return TaskHolder.getMetricDimensions(getDataSource(), getTaskId(), getTaskType(), getGroupId());
   }
 }

@@ -19,19 +19,25 @@
 
 package org.apache.druid.java.util.metrics;
 
-import com.google.common.collect.ImmutableList;
-import org.apache.druid.java.util.emitter.service.ServiceEmitter;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Provides;
+import com.google.inject.name.Named;
+import org.apache.druid.guice.ManageLifecycle;
+import org.apache.druid.java.util.emitter.core.Emitter;
 
-public class NoopOshiSysMonitor extends OshiSysMonitor
+public class StubServiceEmitterModule implements Module
 {
-  public NoopOshiSysMonitor()
+  @Override
+  public void configure(Binder binder)
   {
-    super(new OshiSysMonitorConfig(ImmutableList.of()));
   }
 
-  @Override
-  public boolean doMonitor(ServiceEmitter emitter)
+  @Provides
+  @ManageLifecycle
+  @Named(StubServiceEmitter.TYPE)
+  public Emitter getEmitter(TaskHolder taskHolder)
   {
-    return false;
+    return new StubServiceEmitter("test", "host", taskHolder);
   }
 }

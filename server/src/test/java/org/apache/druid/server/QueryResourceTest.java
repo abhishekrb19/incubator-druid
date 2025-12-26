@@ -1545,13 +1545,16 @@ public class QueryResourceTest
   public void testTooManyQueryInLane() throws InterruptedException, ExecutionException
   {
     expectPermissiveHappyPathAuth();
+    StubServiceEmitter stubServiceEmitter = new StubServiceEmitter();
+    stubServiceEmitter.start();
     final CountDownLatch waitTwoStarted = new CountDownLatch(2);
     final CountDownLatch waitOneScheduled = new CountDownLatch(1);
     final QueryScheduler scheduler = new QueryScheduler(
         40,
         ManualQueryPrioritizationStrategy.INSTANCE,
         new HiLoQueryLaningStrategy(2),
-        new ServerConfig()
+        new ServerConfig(),
+        stubServiceEmitter
     );
 
     ArrayList<Future<Boolean>> back2 = new ArrayList<>();

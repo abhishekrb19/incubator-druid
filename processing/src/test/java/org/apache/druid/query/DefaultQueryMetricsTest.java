@@ -49,6 +49,7 @@ public class DefaultQueryMetricsTest extends InitializedNullHandlingTest
   public void testDefaultQueryMetricsQuery()
   {
     final StubServiceEmitter serviceEmitter = new StubServiceEmitter("", "");
+    serviceEmitter.start();
     DefaultQueryMetrics<Query<?>> queryMetrics = new DefaultQueryMetrics<>();
     TopNQuery query = new TopNQueryBuilder()
         .dataSource("xx")
@@ -103,6 +104,7 @@ public class DefaultQueryMetricsTest extends InitializedNullHandlingTest
   )
   {
     final StubServiceEmitter serviceEmitter = new StubServiceEmitter();
+    serviceEmitter.start();
     queryMetrics.reportQueryTime(1000001).emit(serviceEmitter);
     // query/time and most metrics below are measured in milliseconds by default
     serviceEmitter.verifyValue("query/time", 1L);
@@ -145,6 +147,7 @@ public class DefaultQueryMetricsTest extends InitializedNullHandlingTest
   public void testVectorizedDimensionInMetrics()
   {
     final StubServiceEmitter serviceEmitter = new StubServiceEmitter("", "");
+    serviceEmitter.start();
     DefaultQueryMetrics<Query<?>> queryMetrics = new DefaultQueryMetrics<>();
     queryMetrics.vectorized(true);
     queryMetrics.reportSegmentTime(0).emit(serviceEmitter);

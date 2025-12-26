@@ -19,15 +19,23 @@
 
 package org.apache.druid.server.metrics;
 
+import org.apache.druid.java.util.metrics.TaskHolder;
+
+import java.util.Map;
+
 public class TestTaskHolder implements TaskHolder
 {
   private final String dataSource;
   private final String taskId;
+  private final String taskType;
+  private final String groupId;
 
-  public TestTaskHolder(final String dataSource, final String taskId)
+  public TestTaskHolder(final String dataSource, final String taskId, final String taskType, final String groupId)
   {
     this.dataSource = dataSource;
     this.taskId = taskId;
+    this.taskType = taskType;
+    this.groupId = groupId;
   }
 
   @Override
@@ -40,5 +48,23 @@ public class TestTaskHolder implements TaskHolder
   public String getTaskId()
   {
     return taskId;
+  }
+
+  @Override
+  public String getTaskType()
+  {
+    return taskType;
+  }
+
+  @Override
+  public String getGroupId()
+  {
+    return groupId;
+  }
+
+  @Override
+  public Map<String, String> getMetricDimensions()
+  {
+    return TaskHolder.getMetricDimensions(dataSource, taskId, taskType, groupId);
   }
 }

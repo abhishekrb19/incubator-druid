@@ -25,39 +25,64 @@ import org.apache.druid.java.util.common.lifecycle.LifecycleStart;
 import org.apache.druid.java.util.common.lifecycle.LifecycleStop;
 import org.apache.druid.java.util.emitter.core.Emitter;
 import org.apache.druid.java.util.emitter.core.Event;
+import org.apache.druid.java.util.metrics.NoopTaskHolder;
+import org.apache.druid.java.util.metrics.TaskHolder;
+import org.jetbrains.annotations.VisibleForTesting;
 
 import java.io.IOException;
 
 public class ServiceEmitter implements Emitter
 {
-  private final ImmutableMap<String, String> serviceDimensions;
-  private final Emitter emitter;
+  protected final Emitter emitter;
+  private final String service;
+  private final ImmutableMap<String, String> otherServiceDimensions;
+  private final String host;
+  private final TaskHolder taskHolder;
 
+  /**
+   * This is initialized in {@link #start()} rather than in the constructor, since {@link #taskHolder}
+   * may be pulled eagerly and may introduce cyclic dependencies.
+   */
+  private ImmutableMap<String, String> serviceDimensions;
+
+  /**
+   * Remove this constructor
+   * @param service
+   * @param host
+   * @param emitter
+   */
+  @VisibleForTesting
   public ServiceEmitter(String service, String host, Emitter emitter)
   {
-    this(service, host, emitter, ImmutableMap.of());
+    this(service, host, emitter, ImmutableMap.of(), new NoopTaskHolder());
   }
 
   public ServiceEmitter(
       String service,
       String host,
       Emitter emitter,
-      ImmutableMap<String, String> otherServiceDimensions
+      ImmutableMap<String, String> otherServiceDimensions,
+      TaskHolder taskHolder
   )
   {
-    this.serviceDimensions = ImmutableMap
-        .<String, String>builder()
-        .put("service", Preconditions.checkNotNull(service, "service should be non-null"))
-        .put("host", Preconditions.checkNotNull(host, "host should be non-null"))
-        .putAll(otherServiceDimensions)
-        .build();
+    this.service = Preconditions.checkNotNull(service, "service should be non-null");
+    this.host = Preconditions.checkNotNull(host, "host should be non-null");
+    this.otherServiceDimensions = otherServiceDimensions;
     this.emitter = emitter;
+    this.taskHolder = taskHolder;
   }
 
   @Override
   @LifecycleStart
   public void start()
   {
+    serviceDimensions = ImmutableMap
+        .<String, String>builder()
+        .put(Event.SERVICE, service)
+        .put(Event.HOST, host)
+        .putAll(otherServiceDimensions)
+        .putAll(taskHolder.getMetricDimensions())
+        .build();
     emitter.start();
   }
 

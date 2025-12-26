@@ -54,9 +54,9 @@ public class Monitors
     // running on the same instance, so most of the time SysMonitor should be configured/set up differently than
     // "simple" JVM monitors, created below.
     return and(// Could equally be or(), because all member monitors always return true from their monitor() methods.
-                new JvmMonitor(dimensions, feed),
-                new JvmCpuMonitor(dimensions, feed),
-                new JvmThreadsMonitor(dimensions, feed)
+                new JvmMonitor(feed),
+                new JvmCpuMonitor(feed),
+                new JvmThreadsMonitor(feed)
     );
   }
 
