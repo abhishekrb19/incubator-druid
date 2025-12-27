@@ -53,15 +53,20 @@ public class StubServiceEmitter extends ServiceEmitter implements MetricsVerifie
   public StubServiceEmitter()
   {
     this("testing", "localhost");
-    super.start();
   }
 
+  /**
+   * Initialize a stub service emitter and auto-{@link #start()}  it for test convenience.
+   */
   public StubServiceEmitter(String service, String host)
   {
     this(service, host, new NoopTaskHolder());
     super.start();
   }
 
+  /**
+   * Initialize a stub service emitter. Tests must explicitly call {@link #start()}.
+   */
   public StubServiceEmitter(String service, String host, TaskHolder taskHolder)
   {
     super(service, host, new NoopEmitter(), ImmutableMap.of(), taskHolder);
