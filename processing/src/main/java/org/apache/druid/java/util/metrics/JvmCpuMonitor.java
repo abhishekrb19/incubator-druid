@@ -38,8 +38,6 @@ public class JvmCpuMonitor extends FeedDefiningMonitor
 
   private final KeyedDiff diff = new KeyedDiff();
 
-  private Map<String, String[]> dimensions;
-
   public JvmCpuMonitor()
   {
     this(DEFAULT_METRICS_FEED);
@@ -57,7 +55,6 @@ public class JvmCpuMonitor extends FeedDefiningMonitor
     try {
       ProcCpu procCpu = sigar.getProcCpu(currentProcessId);
       final ServiceMetricEvent.Builder builder = builder();
-      MonitorUtils.addDimensionsToBuilder(builder, dimensions);
       // delta for total, sys, user
       Map<String, Long> procDiff = diff.to(
           "proc/cpu", ImmutableMap.of(
