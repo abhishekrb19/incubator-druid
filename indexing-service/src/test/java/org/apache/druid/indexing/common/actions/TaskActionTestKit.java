@@ -115,7 +115,6 @@ public class TaskActionTestKit extends ExternalResource
   public void before()
   {
     emitter = new StubServiceEmitter();
-    emitter.start();
     taskStorage = new HeapMemoryTaskStorage(new TaskStorageConfig(new Period("PT24H")));
     testDerbyConnector = new TestDerbyConnector(
         new MetadataStorageConnectorConfig(),
@@ -236,6 +235,5 @@ public class TaskActionTestKit extends ExternalResource
     segmentMetadataCache.stopBeingLeader();
     segmentMetadataCache.stop();
     useSegmentMetadataCache = false;
-    emitter.close();
   }
 }
