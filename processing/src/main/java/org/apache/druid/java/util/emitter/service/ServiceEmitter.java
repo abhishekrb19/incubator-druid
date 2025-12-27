@@ -27,7 +27,6 @@ import org.apache.druid.java.util.emitter.core.Emitter;
 import org.apache.druid.java.util.emitter.core.Event;
 import org.apache.druid.java.util.metrics.NoopTaskHolder;
 import org.apache.druid.java.util.metrics.TaskHolder;
-import org.jetbrains.annotations.VisibleForTesting;
 
 import java.io.IOException;
 
@@ -45,13 +44,6 @@ public class ServiceEmitter implements Emitter
    */
   private ImmutableMap<String, String> serviceDimensions;
 
-  /**
-   * Remove this constructor
-   * @param service
-   * @param host
-   * @param emitter
-   */
-  @VisibleForTesting
   public ServiceEmitter(String service, String host, Emitter emitter)
   {
     this(service, host, emitter, ImmutableMap.of(), new NoopTaskHolder());

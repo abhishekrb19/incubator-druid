@@ -53,11 +53,13 @@ public class StubServiceEmitter extends ServiceEmitter implements MetricsVerifie
   public StubServiceEmitter()
   {
     this("testing", "localhost");
+    super.start();
   }
 
   public StubServiceEmitter(String service, String host)
   {
     this(service, host, new NoopTaskHolder());
+    super.start();
   }
 
   public StubServiceEmitter(String service, String host, TaskHolder taskHolder)
