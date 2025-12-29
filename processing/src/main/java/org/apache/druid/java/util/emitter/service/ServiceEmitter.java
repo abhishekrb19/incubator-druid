@@ -39,8 +39,8 @@ public class ServiceEmitter implements Emitter
   private final TaskHolder taskHolder;
 
   /**
-   * This is initialized in {@link #start()} rather than in the constructor, since {@link #taskHolder}
-   * may be pulled eagerly and may introduce cyclic dependencies.
+   * This is initialized in {@link #start()} rather than in the constructor, since calling {@link TaskHolder#getMetricDimensions()}
+   * may introduce cyclic dependencies. So we defer initialization until {@link #start()} which is {@link LifecycleStart} managed.
    */
   private ImmutableMap<String, String> serviceDimensions;
 
