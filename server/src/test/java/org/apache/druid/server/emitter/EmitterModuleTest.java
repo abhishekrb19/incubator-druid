@@ -154,8 +154,8 @@ public class EmitterModuleTest
     stubEmitter.verifyEmitted("metric1", 1);
     List<Event> events = stubEmitter.getEvents();
     Assert.assertEquals(1, events.size());
-    ServiceMetricEvent evt = (ServiceMetricEvent) events.get(0);
-    EventMap map = evt.toMap();
+    ServiceMetricEvent event = (ServiceMetricEvent) events.get(0);
+    EventMap map = event.toMap();
     Assert.assertEquals("e", map.get(DruidMetrics.TASK_ID));
     Assert.assertEquals("e", map.get(DruidMetrics.ID));
     Assert.assertEquals("a", map.get(DruidMetrics.TASK_TYPE));
@@ -163,17 +163,16 @@ public class EmitterModuleTest
     Assert.assertEquals("d", map.get(DruidMetrics.DATASOURCE));
     stubEmitter.flush();
 
-    // Override ; this should never happen, but this is by design
+    // Override a dimension and verify that is emitted
     final ServiceMetricEvent.Builder builder2 = new ServiceMetricEvent.Builder();
-    builder2.setDimension("foo2", "bar");
     builder2.setDimension("taskId", "xyz");
     builder2.setMetric("metric2", 1);
     instance.emit(builder2);
 
     List<Event> events2 = stubEmitter.getEvents();
     Assert.assertEquals(1, events2.size());
-    ServiceMetricEvent evt2 = (ServiceMetricEvent) events2.get(0);
-    EventMap map2 = evt2.toMap();
+    ServiceMetricEvent event2 = (ServiceMetricEvent) events2.get(0);
+    EventMap map2 = event2.toMap();
     Assert.assertEquals("xyz", map2.get(DruidMetrics.TASK_ID));
     Assert.assertEquals("e", map2.get(DruidMetrics.ID));
     Assert.assertEquals("a", map2.get(DruidMetrics.TASK_TYPE));

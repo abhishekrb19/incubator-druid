@@ -39,6 +39,7 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import javax.validation.Validation;
+
 import java.io.IOException;
 import java.util.Properties;
 
