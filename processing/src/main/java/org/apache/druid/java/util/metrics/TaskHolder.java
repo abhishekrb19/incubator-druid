@@ -19,8 +19,6 @@
 
 package org.apache.druid.java.util.metrics;
 
-import org.apache.druid.query.DruidMetrics;
-
 import javax.annotation.Nullable;
 import java.util.Map;
 
@@ -55,25 +53,7 @@ public interface TaskHolder
   String getGroupId();
 
   /**
-   * @return a map of task holder dimensions from the provided {@link TaskHolder} if {@link TaskHolder#getDataSource()}
-   * and {@link TaskHolder#getTaskId()} are non-null.
-   * <p>The task ID ({@link TaskHolder#getTaskId()}) is added to both {@link DruidMetrics#TASK_ID}
-   * and {@link DruidMetrics#ID} dimensions to the map for backward compatibility. {@link DruidMetrics#ID} is
-   * deprecated because it's ambiguous and will be removed in a future release.</p>
+   * @return a map of task holder dimensions, or an empty map if called from a server that is not {@code CliPeon}.
    */
   Map<String, String> getMetricDimensions();
-
-  /**
-   * Helper utility for TaskHolder implementations.
-   */
-  static Map<String, String> getMetricDimensions(String dataSource, String taskId, String taskType, String groupId)
-  {
-    return Map.of(
-        DruidMetrics.DATASOURCE, dataSource,
-        DruidMetrics.TASK_ID, taskId,
-        DruidMetrics.ID, taskId,
-        DruidMetrics.TASK_TYPE, taskType,
-        DruidMetrics.GROUP_ID, groupId
-    );
-  }
 }

@@ -20,6 +20,7 @@
 package org.apache.druid.server.metrics;
 
 import org.apache.druid.java.util.metrics.TaskHolder;
+import org.apache.druid.query.DruidMetrics;
 
 import java.util.Map;
 
@@ -65,6 +66,12 @@ public class TestTaskHolder implements TaskHolder
   @Override
   public Map<String, String> getMetricDimensions()
   {
-    return TaskHolder.getMetricDimensions(dataSource, taskId, taskType, groupId);
+    return Map.of(
+        DruidMetrics.DATASOURCE, dataSource,
+        DruidMetrics.TASK_ID, taskId,
+        DruidMetrics.ID, taskId,
+        DruidMetrics.TASK_TYPE, taskType,
+        DruidMetrics.GROUP_ID, groupId
+    );
   }
 }
