@@ -93,6 +93,7 @@ import org.apache.druid.java.util.emitter.core.Emitter;
 import org.apache.druid.java.util.emitter.core.Event;
 import org.apache.druid.java.util.emitter.core.EventMap;
 import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
+import org.apache.druid.java.util.metrics.StubServiceEmitter;
 import org.apache.druid.java.util.metrics.TaskHolder;
 import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.DefaultGenericQueryMetricsFactory;
@@ -126,7 +127,6 @@ import org.apache.druid.segment.transform.ExpressionTransform;
 import org.apache.druid.segment.transform.TransformSpec;
 import org.apache.druid.server.coordination.BroadcastDatasourceLoadingSpec;
 import org.apache.druid.server.lookup.cache.LookupLoadingSpec;
-import org.apache.druid.java.util.metrics.LatchableEmitter;
 import org.apache.druid.server.metrics.LoadSpecHolder;
 import org.apache.druid.server.security.Action;
 import org.apache.druid.server.security.Resource;
@@ -3517,10 +3517,10 @@ public class KafkaIndexTaskTest extends SeekableStreamIndexTaskTestBase
         )
     );
 
-    Injector peonInjector = CliPeonTest.makePeonInjectorWithLatchingEmitter(task, temporaryFolder, OBJECT_MAPPER);
+    Injector peonInjector = CliPeonTest.makePeonInjectorWithStubEmitter(task, temporaryFolder, OBJECT_MAPPER);
     Emitter peonEmitter = peonInjector.getInstance(Emitter.class);
-    Assert.assertTrue(peonEmitter instanceof LatchableEmitter);
-    emitter = (LatchableEmitter) peonEmitter;
+    Assert.assertTrue(peonEmitter instanceof StubServiceEmitter);
+    emitter = (StubServiceEmitter) peonEmitter;
     emitter.start();
     makeToolboxFactory();
 

@@ -26,7 +26,6 @@ import com.google.inject.name.Named;
 import org.apache.druid.guice.ManageLifecycle;
 import org.apache.druid.java.util.emitter.core.Emitter;
 
-@Deprecated
 public class StubServiceEmitterModule implements Module
 {
   @Override
