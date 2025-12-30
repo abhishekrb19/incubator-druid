@@ -27,7 +27,7 @@ import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.lifecycle.Lifecycle;
 import org.apache.druid.java.util.common.logger.Logger;
-import org.apache.druid.server.metrics.LatchableEmitter;
+import org.apache.druid.java.util.metrics.LatchableEmitter;
 import org.apache.druid.utils.RuntimeInfo;
 
 import java.util.ArrayList;

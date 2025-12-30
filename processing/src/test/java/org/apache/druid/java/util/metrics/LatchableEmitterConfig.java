@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.druid.server.metrics;
+package org.apache.druid.java.util.metrics;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

@@ -17,13 +17,12 @@
  * under the License.
  */
 
-package org.apache.druid.server.metrics;
+package org.apache.druid.java.util.metrics;
 
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.java.util.emitter.core.Event;
 import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
-import org.apache.druid.java.util.metrics.StubServiceEmitter;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Timeout;
@@ -72,9 +71,9 @@ public class LatchableEmitter extends StubServiceEmitter
   /**
    * Creates a {@link StubServiceEmitter} that may be used in embedded tests.
    */
-  public LatchableEmitter(String service, String host, LatchableEmitterConfig config)
+  public LatchableEmitter(String service, String host, LatchableEmitterConfig config, TaskHolder taskHolder)
   {
-    super(service, host);
+    super(service, host, taskHolder);
     this.defaultWaitTimeoutMillis = config.getDefaultWaitTimeoutMillis();
   }
 

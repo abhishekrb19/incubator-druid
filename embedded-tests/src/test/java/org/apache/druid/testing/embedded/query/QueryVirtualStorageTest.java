@@ -28,7 +28,7 @@ import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
 import org.apache.druid.msq.indexing.report.MSQTaskReportPayload;
 import org.apache.druid.query.DefaultQueryMetrics;
 import org.apache.druid.query.DruidProcessingConfigTest;
-import org.apache.druid.server.metrics.LatchableEmitter;
+import org.apache.druid.java.util.metrics.LatchableEmitter;
 import org.apache.druid.server.metrics.StorageMonitor;
 import org.apache.druid.sql.calcite.planner.Calcites;
 import org.apache.druid.testing.embedded.EmbeddedBroker;

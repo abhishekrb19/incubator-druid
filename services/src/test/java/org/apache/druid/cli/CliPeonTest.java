@@ -61,7 +61,6 @@ import org.apache.druid.java.util.emitter.core.EventMap;
 import org.apache.druid.java.util.emitter.service.ServiceEventBuilder;
 import org.apache.druid.java.util.emitter.service.ServiceMetricEvent;
 import org.apache.druid.java.util.metrics.StubServiceEmitter;
-import org.apache.druid.java.util.metrics.StubServiceEmitterModule;
 import org.apache.druid.java.util.metrics.TaskHolder;
 import org.apache.druid.query.DruidMetrics;
 import org.apache.druid.query.aggregation.AggregatorFactory;
@@ -74,8 +73,10 @@ import org.apache.druid.segment.TestIndex;
 import org.apache.druid.segment.indexing.DataSchema;
 import org.apache.druid.server.coordination.BroadcastDatasourceLoadingSpec;
 import org.apache.druid.server.lookup.cache.LookupLoadingSpec;
+import org.apache.druid.java.util.metrics.LatchableEmitter;
 import org.apache.druid.server.metrics.LoadSpecHolder;
 import org.apache.druid.storage.local.LocalTmpStorageConfig;
+import org.apache.druid.testing.embedded.emitter.LatchableEmitterModule;
 import org.joda.time.Duration;
 import org.junit.Assert;
 import org.junit.Rule;
@@ -280,19 +281,19 @@ public class CliPeonTest
             new LongSumAggregatorFactory("val", "val")
         }).build();
 
-    final Injector peonInjector = makePeonInjectorWithStubEmitter(compactionTask, temporaryFolder, mapper);
+    final Injector peonInjector = makePeonInjectorWithLatchingEmitter(compactionTask, temporaryFolder, mapper);
     verifyLoadSpecHolder(peonInjector.getInstance(LoadSpecHolder.class), compactionTask);
     verifyTaskHolder(peonInjector.getInstance(TaskHolder.class), compactionTask);
 
     Emitter instance = peonInjector.getInstance(Emitter.class);
-    Assert.assertTrue(instance instanceof StubServiceEmitter);
+    Assert.assertTrue(instance instanceof LatchableEmitter);
     instance.start();
 
     ServiceMetricEvent.Builder builder = ServiceMetricEvent.builder();
     ServiceEventBuilder eventBuilder = builder.setMetric("foo", 1.0);
     builder.setDimension("dd", "wikipedia");
     builder.setDimension("ee", "index");
-    ((StubServiceEmitter) instance).emit(eventBuilder);
+    ((LatchableEmitter) instance).emit(eventBuilder);
 
     StubServiceEmitter stubEmitter = (StubServiceEmitter) instance;
     Assert.assertEquals(1, stubEmitter.getNumEmittedEvents());
@@ -318,13 +319,13 @@ public class CliPeonTest
     return peon.makeInjector(Set.of(NodeRole.PEON));
   }
 
-  public static Injector makePeonInjectorWithStubEmitter(Task task, TemporaryFolder temporaryFolder, ObjectMapper mapper) throws IOException
+  public static Injector makePeonInjectorWithLatchingEmitter(Task task, TemporaryFolder temporaryFolder, ObjectMapper mapper) throws IOException
   {
     File taskFile = temporaryFolder.newFile("task.json");
     FileUtils.write(taskFile, mapper.writeValueAsString(task), StandardCharsets.UTF_8);
 
     final Properties properties = new Properties();
-    properties.setProperty("druid.emitter", "stub");
+    properties.setProperty("druid.emitter", "latching");
 
     final Injector baseInjector = Guice.createInjector(
         new JacksonModule(),
@@ -341,9 +342,9 @@ public class CliPeonTest
       @Override
       protected List<? extends Module> getModules()
       {
-        // Load the CliPeon with StubServiceEmitter
+        // Load the CliPeon with LatchingEmitter
         List<Module> modules = new ArrayList<>(super.getModules());
-        modules.add(new StubServiceEmitterModule());
+        modules.add(new LatchableEmitterModule());
         return modules;
       }
     };
