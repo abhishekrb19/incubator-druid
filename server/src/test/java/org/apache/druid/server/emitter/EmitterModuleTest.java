@@ -118,7 +118,7 @@ public class EmitterModuleTest
 
     ImmutableSet<NodeRole> nodeRoles = ImmutableSet.of();
 
-    TestTaskHolder testTaskHolder = new TestTaskHolder("d", "e", "a", "w");
+    TestTaskHolder testTaskHolder = new TestTaskHolder("wiki", "id1", "type1", "group1");
     Injector injector = Guice.createInjector(
         new JacksonModule(),
         new LifecycleModule(),
