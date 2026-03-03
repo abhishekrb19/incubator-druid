@@ -246,20 +246,8 @@ public class TierSelectorStrategyTest
         new DruidServer("test1", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, -1),
         client
     );
-    QueryableDruidServer p0 = new QueryableDruidServer(
-        new DruidServer("test2", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 0),
-        client
-    );
     QueryableDruidServer p1 = new QueryableDruidServer(
         new DruidServer("test3", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 1),
-        client
-    );
-    QueryableDruidServer p2 = new QueryableDruidServer(
-        new DruidServer("test4", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 2),
-        client
-    );
-    QueryableDruidServer p3 = new QueryableDruidServer(
-        new DruidServer("test5", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 3),
         client
     );
 

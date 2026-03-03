@@ -31,12 +31,23 @@ import org.apache.druid.timeline.DataSegment;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 /**
- *
+ * Tier selector strategy that strictly filters servers based on a configured list of {@link StrictTierSelectorStrategyConfig#getPriorities()}.
+ * <p>
+ * Unlike other tier selector strategies that accept all servers, this strategy ONLY selects servers
+ * whose priorities are explicitly listed in the configuration and doesn't fall back to {@link HighestPriorityTierSelectorStrategy}.
+ * Servers with unconfigured priorities are ignored and logged as warnings.
+ * <p>
+ * If no servers match the configured priorities, an empty list is returned, which may result in queries returning partial data.
+ * This ensures strict enforcement of tier selection policies.
+ * <p>
+ * Configuration: {@code priorities} - A list of integer priority values to allow. Only servers
+ * with these exact priority values will be considered for selection.
  */
 public class StrictTierSelectorStrategy extends AbstractTierSelectorStrategy
 {
@@ -44,7 +55,7 @@ public class StrictTierSelectorStrategy extends AbstractTierSelectorStrategy
   public static final String TYPE = "strict";
 
   private final StrictTierSelectorStrategyConfig config;
-  private final List<Integer> configuredPriorities;
+  private final Map<Integer, Integer> configuredPriorities;
   private final Comparator<Integer> comparator;
 
   @JsonCreator
@@ -55,20 +66,18 @@ public class StrictTierSelectorStrategy extends AbstractTierSelectorStrategy
   {
     super(serverSelectorStrategy);
     this.config = config;
-    this.configuredPriorities = config.getPriorities();
 
-    final Map<Integer, Integer> lookup = new HashMap<>();
-    int pos = 0;
-    for (Integer integer : config.getPriorities()) {
-      lookup.put(integer, pos);
-      pos++;
+    configuredPriorities = new HashMap<>();
+    for (int i = 0; i < config.getPriorities().size(); i++) {
+      configuredPriorities.put(config.getPriorities().get(i), i);
     }
 
     // Tiers with priorities explicitly specified in the custom priority list config always have higher priority than
-    // those not and those not specified fall back to use the highest priority strategy among themselves
+    // those not and those not specified fall back to use the highest priority strategy among themselves to honor the
+    // comparator contract. StrictTierSelectorStrategy.pick() does the strict priority enforcement.
     this.comparator = (p1, p2) -> {
-      final Integer rank1 = lookup.get(p1);
-      final Integer rank2 = lookup.get(p2);
+      final Integer rank1 = configuredPriorities.get(p1);
+      final Integer rank2 = configuredPriorities.get(p2);
 
       if (rank1 != null && rank2 != null) {
         return Integer.compare(rank1, rank2);
@@ -80,7 +89,6 @@ public class StrictTierSelectorStrategy extends AbstractTierSelectorStrategy
         return 1;
       }
 
-      // Fall back to highest priority first
       return Integer.compare(p2, p1);
     };
   }
@@ -107,18 +115,16 @@ public class StrictTierSelectorStrategy extends AbstractTierSelectorStrategy
     // if there's no match between configuredPriorities and prioritizedServers's priorities, then return empty list
     // Get all actual priorities present in the server map (already in comparator order)
     // Create a filtered map with only configured priorities, preserving order
-    final Int2ObjectRBTreeMap<Set<QueryableDruidServer>> filteredPrioritizedServers = new Int2ObjectRBTreeMap<>(getComparator()); // fixme: define comparator
+    final Int2ObjectRBTreeMap<Set<QueryableDruidServer>> filteredPrioritizedServers = new Int2ObjectRBTreeMap<>(getComparator());
 
     // Iterate through entries in tree order to preserve priority ordering
     for (Int2ObjectMap.Entry<Set<QueryableDruidServer>> entry : prioritizedServers.int2ObjectEntrySet()) {
       int priority = entry.getIntKey();
       Set<QueryableDruidServer> servers = entry.getValue();
 
-      if (configuredPriorities.contains(priority)) {
-        // Priority is in configured list, include it (preserves the same Set reference)
+      if (configuredPriorities.containsKey(priority)) {
         filteredPrioritizedServers.put(priority, servers);
       } else {
-        // Handle unconfigured priority - log warning
         log.warn(
             "Priority [%d] not in configured list [%s] so ignore servers [%s]",
             priority, this.configuredPriorities, servers
@@ -132,7 +138,7 @@ public class StrictTierSelectorStrategy extends AbstractTierSelectorStrategy
           "Servers found with configured priorities %s. Available priorities were: %s",
           this.configuredPriorities, prioritizedServers.keySet()
       );
-      return Collections.emptyList();
+      return List.of();
     }
 
     log.info(
@@ -148,7 +154,7 @@ public class StrictTierSelectorStrategy extends AbstractTierSelectorStrategy
   public String toString()
   {
     return "StrictTierSelectorStrategy{" +
-           "configuredPriorities=" + configuredPriorities +
+           "config=" + config +
            '}';
   }
 }
