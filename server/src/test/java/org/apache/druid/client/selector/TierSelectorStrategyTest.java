@@ -212,6 +212,165 @@ public class TierSelectorStrategyTest
     );
   }
 
+  @Test
+  public void testStrictTierSelectorStrategyAllConfigured()
+  {
+    DirectDruidClient client = EasyMock.createMock(DirectDruidClient.class);
+    QueryableDruidServer pNeg1 = new QueryableDruidServer(
+        new DruidServer("test1", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, -1),
+        client
+    );
+    QueryableDruidServer p0 = new QueryableDruidServer(
+        new DruidServer("test2", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 0),
+        client
+    );
+    QueryableDruidServer p2 = new QueryableDruidServer(
+        new DruidServer("test3", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 2),
+        client
+    );
+
+    testTierSelectorStrategy(
+        new StrictTierSelectorStrategy(
+            new ConnectionCountServerSelectorStrategy(),
+            new StrictTierSelectorStrategyConfig(List.of(2, 0, -1))
+        ),
+        p2, p0, pNeg1
+    );
+  }
+
+  @Test
+  public void testStrictTierSelectorStrategyMixedPriorities()
+  {
+    DirectDruidClient client = EasyMock.createMock(DirectDruidClient.class);
+    QueryableDruidServer pNeg1 = new QueryableDruidServer(
+        new DruidServer("test1", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, -1),
+        client
+    );
+    QueryableDruidServer p0 = new QueryableDruidServer(
+        new DruidServer("test2", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 0),
+        client
+    );
+    QueryableDruidServer p1 = new QueryableDruidServer(
+        new DruidServer("test3", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 1),
+        client
+    );
+    QueryableDruidServer p2 = new QueryableDruidServer(
+        new DruidServer("test4", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 2),
+        client
+    );
+    QueryableDruidServer p3 = new QueryableDruidServer(
+        new DruidServer("test5", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 3),
+        client
+    );
+
+    // Configure only priorities 1 and -1
+    // Servers with priorities 0, 2, 3 should be filtered out
+    testTierSelectorStrategy(
+        new StrictTierSelectorStrategy(
+            new ConnectionCountServerSelectorStrategy(),
+            new StrictTierSelectorStrategyConfig(List.of(1, -1))
+        ),
+        p1, pNeg1
+    );
+  }
+
+  @Test
+  public void testStrictTierSelectorStrategyNoMatchingPriorities()
+  {
+    DirectDruidClient client = EasyMock.createMock(DirectDruidClient.class);
+    QueryableDruidServer p0 = new QueryableDruidServer(
+        new DruidServer("test1", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 0),
+        client
+    );
+    QueryableDruidServer p1 = new QueryableDruidServer(
+        new DruidServer("test2", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 1),
+        client
+    );
+    QueryableDruidServer p2 = new QueryableDruidServer(
+        new DruidServer("test3", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 2),
+        client
+    );
+
+    final ServerSelector serverSelector = new ServerSelector(
+        new DataSegment(
+            "test",
+            Intervals.of("2013-01-01/2013-01-02"),
+            DateTimes.of("2013-01-01").toString(),
+            new HashMap<>(),
+            new ArrayList<>(),
+            new ArrayList<>(),
+            NoneShardSpec.instance(),
+            0,
+            0L
+        ),
+        new StrictTierSelectorStrategy(
+            new ConnectionCountServerSelectorStrategy(),
+            new StrictTierSelectorStrategyConfig(List.of(5, 6))
+        ),
+        HistoricalFilter.IDENTITY_FILTER
+    );
+
+    List<QueryableDruidServer> servers = Arrays.asList(p0, p1, p2);
+    for (QueryableDruidServer server : servers) {
+      serverSelector.addServerAndUpdateSegment(server, serverSelector.getSegment());
+    }
+
+    // Should return null when no matching priorities
+    Assert.assertNull(serverSelector.pick(null, CloneQueryMode.EXCLUDECLONES));
+    Assert.assertNull(serverSelector.pick(EasyMock.createMock(Query.class), CloneQueryMode.EXCLUDECLONES));
+
+    // Should return empty list for getCandidates
+    Assert.assertEquals(Collections.emptyList(), serverSelector.getCandidates(2, CloneQueryMode.EXCLUDECLONES));
+  }
+
+  @Test
+  public void testStrictTierSelectorStrategyEmptyPriorities()
+  {
+    DirectDruidClient client = EasyMock.createMock(DirectDruidClient.class);
+    QueryableDruidServer p0 = new QueryableDruidServer(
+        new DruidServer("test1", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 0),
+        client
+    );
+    QueryableDruidServer p1 = new QueryableDruidServer(
+        new DruidServer("test2", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 1),
+        client
+    );
+
+    final ServerSelector serverSelector = new ServerSelector(
+        new DataSegment(
+            "test",
+            Intervals.of("2013-01-01/2013-01-02"),
+            DateTimes.of("2013-01-01").toString(),
+            new HashMap<>(),
+            new ArrayList<>(),
+            new ArrayList<>(),
+            NoneShardSpec.instance(),
+            0,
+            0L
+        ),
+        new StrictTierSelectorStrategy(
+            new ConnectionCountServerSelectorStrategy(),
+            new StrictTierSelectorStrategyConfig(List.of())
+        ),
+        HistoricalFilter.IDENTITY_FILTER
+    );
+
+    List<QueryableDruidServer> servers = Arrays.asList(p0, p1);
+    for (QueryableDruidServer server : servers) {
+      serverSelector.addServerAndUpdateSegment(server, serverSelector.getSegment());
+    }
+
+    // Should return null when priorities list is empty
+    Assert.assertNull(serverSelector.pick(null, CloneQueryMode.EXCLUDECLONES));
+    Assert.assertNull(serverSelector.pick(EasyMock.createMock(Query.class), CloneQueryMode.EXCLUDECLONES));
+
+    // Should return empty list for getCandidates
+    Assert.assertEquals(
+        List.of(),
+        serverSelector.getCandidates(3, CloneQueryMode.EXCLUDECLONES)
+    );
+  }
+
   private void testTierSelectorStrategy(
       TierSelectorStrategy tierSelectorStrategy,
       QueryableDruidServer... expectedSelection

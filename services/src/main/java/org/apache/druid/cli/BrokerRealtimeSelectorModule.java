@@ -32,6 +32,8 @@ import org.apache.druid.client.selector.CustomTierSelectorStrategyConfig;
 import org.apache.druid.client.selector.PreferredTierSelectorStrategy;
 import org.apache.druid.client.selector.PreferredTierSelectorStrategyConfig;
 import org.apache.druid.client.selector.ServerSelectorStrategy;
+import org.apache.druid.client.selector.StrictTierSelectorStrategy;
+import org.apache.druid.client.selector.StrictTierSelectorStrategyConfig;
 import org.apache.druid.client.selector.TierSelectorStrategy;
 import org.apache.druid.discovery.NodeRole;
 import org.apache.druid.guice.JsonConfigurator;
@@ -153,6 +155,15 @@ public class BrokerRealtimeSelectorModule implements DruidModule
 
         log.info("Creating PreferredTierSelectorStrategy for realtime servers with config[%s]", config);
         return new PreferredTierSelectorStrategy(realtimeServerSelectorStrategy, config);
+      } else if (StrictTierSelectorStrategy.TYPE.equals(realtimeTier)) {
+        final StrictTierSelectorStrategyConfig config = configurator.configurate(
+            properties,
+            REALTIME_SELECT_TIER_PROPERTY + "." + realtimeTier,
+            StrictTierSelectorStrategyConfig.class
+        );
+
+        log.info("Creating StrictTierSelectorStrategy for realtime servers with config[%s]", config);
+        return new StrictTierSelectorStrategy(realtimeServerSelectorStrategy, config);
       } else {
         return configurator.configurate(properties, "druid.broker.realtime.select", TierSelectorStrategy.class);
       }
