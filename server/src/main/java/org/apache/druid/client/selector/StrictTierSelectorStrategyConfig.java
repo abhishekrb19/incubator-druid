@@ -46,7 +46,7 @@ public class StrictTierSelectorStrategyConfig
       throw DruidException.forPersona(DruidException.Persona.OPERATOR)
                           .ofCategory(DruidException.Category.INVALID_INPUT)
                           .build(
-                              "priorities must be non-empty when configured on the Broker. Found priorities[%s].",
+                              "priorities must be non-empty when using strict tier selector on the Broker. Found priorities[%s].",
                               priorities
                           );
     }

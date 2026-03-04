@@ -106,7 +106,6 @@ public class FlattenedTierSelectorStrategy extends AbstractTierSelectorStrategy
             servers
         );
       }
-      // TODO: handle the case where there's no priorities set? An empty priorities configured, in which case balance everything?
     }
 
     // If no servers found in configured priorities, return empty list
@@ -127,7 +126,7 @@ public class FlattenedTierSelectorStrategy extends AbstractTierSelectorStrategy
         segment,
         numServersToPick
     );
-    log.info("GRRR given[%d], flattened[%d], selected[%d] --- givenServers[%s], flattened serverPool[%s], selectedServers[%s]",
+    log.info("Given[%d], flattened[%d], selected[%d] --- givenServers[%s], flattened serverPool[%s], selectedServers[%s]",
                   prioritizedServers.size(), flattenedServerPool.size(), selectedServers.size(),
                   prioritizedServers, selectedServers, selectedServers);
     return selectedServers;

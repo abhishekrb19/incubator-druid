@@ -20,15 +20,20 @@
 package org.apache.druid.client.selector;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.druid.error.DruidException;
+import org.apache.druid.utils.CollectionUtils;
 
 import java.util.List;
 
 /**
+ * Configuration for {@link FlattenedTierSelectorStrategy}.
+ * <p>
+ * Requires a non-empty {@code priorities} list.
  */
 public class FlattenedTierSelectorStrategyConfig
 {
   @JsonProperty
-  private List<Integer> priorities;
+  private final List<Integer> priorities;
 
   @JsonProperty
   public List<Integer> getPriorities()
@@ -38,6 +43,14 @@ public class FlattenedTierSelectorStrategyConfig
 
   public FlattenedTierSelectorStrategyConfig(@JsonProperty("priorities") final List<Integer> priorities)
   {
+    if (CollectionUtils.isNullOrEmpty(priorities)) {
+      throw DruidException.forPersona(DruidException.Persona.OPERATOR)
+                          .ofCategory(DruidException.Category.INVALID_INPUT)
+                          .build(
+                              "priorities must be non-empty when using flattened tier selector on the Broker. Found priorities[%s].",
+                              priorities
+                          );
+    }
     this.priorities = priorities;
   }
 

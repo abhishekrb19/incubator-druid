@@ -265,17 +265,16 @@ public class CliBrokerTest
     ProvisionException e1 = assertThrows(ProvisionException.class, () -> injector.getInstance(TierSelectorStrategy.class));
     Assert.assertTrue(e1.getMessage().contains(
         "Problem parsing object at prefix[druid.broker.select.tier.strict]: Cannot construct instance of"
-        + " `StrictTierSelectorStrategyConfig`, problem: priorities must be non-empty when configured on the Broker. Found priorities[null]."
+        + " `StrictTierSelectorStrategyConfig`, problem: priorities must be non-empty when using strict tier selector on the Broker. Found priorities[null]."
     ));
 
     ProvisionException e2 = assertThrows(ProvisionException.class, () -> injector.getInstance(
         Key.get(TierSelectorStrategy.class, Names.named(BrokerServerView.REALTIME_SELECTOR))
     ));
     Assert.assertTrue(e2.getMessage().contains(
-        "Problem parsing object at prefix[druid.broker.realtime.select.tier.strict]: Cannot construct"
-        + " instance of `StrictTierSelectorStrategyConfig`, problem: priorities must be non-empty when configured on the Broker. Found priorities[null]."
+        "Problem parsing object at prefix[druid.broker.realtime.select.tier.strict]: Cannot construct instance of"
+        + " `StrictTierSelectorStrategyConfig`, problem: priorities must be non-empty when using strict tier selector on the Broker. Found priorities[null]."
     ));
-
   }
 
   @Test
@@ -409,6 +408,29 @@ public class CliBrokerTest
         Key.get(ServerSelectorStrategy.class, Names.named(BrokerServerView.REALTIME_SELECTOR))
     );
     Assert.assertTrue(realtimeBalancer instanceof RandomServerSelectorStrategy);
+  }
+
+  @Test
+  public void testEmptyFlattenedPrioritiesThrowsException()
+  {
+    final Properties properties = new Properties();
+    properties.setProperty("druid.broker.select.tier", "flattened");
+    properties.setProperty("druid.broker.realtime.select.tier", "flattened");
+
+    final Injector injector = makeBrokerInjector(properties);
+    ProvisionException e1 = assertThrows(ProvisionException.class, () -> injector.getInstance(TierSelectorStrategy.class));
+    Assert.assertTrue(e1.getMessage().contains(
+        "Problem parsing object at prefix[druid.broker.select.tier.flattened]: Cannot construct instance of"
+        + " `FlattenedTierSelectorStrategyConfig`, problem: priorities must be non-empty when using flattened tier selector on the Broker. Found priorities[null]."
+    ));
+
+    ProvisionException e2 = assertThrows(ProvisionException.class, () -> injector.getInstance(
+        Key.get(TierSelectorStrategy.class, Names.named(BrokerServerView.REALTIME_SELECTOR))
+    ));
+    Assert.assertTrue(e2.getMessage().contains(
+        "Problem parsing object at prefix[druid.broker.realtime.select.tier.flattened]: Cannot construct instance of"
+        + " `FlattenedTierSelectorStrategyConfig`, problem: priorities must be non-empty when using flattened tier selector on the Broker. Found priorities[null]."
+    ));
   }
 
   private Injector makeBrokerInjector(final Properties props)
