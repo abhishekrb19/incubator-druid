@@ -39,6 +39,7 @@ import org.apache.druid.client.cache.CacheConfig;
 import org.apache.druid.client.selector.CustomTierSelectorStrategyConfig;
 import org.apache.druid.client.selector.PreferredTierSelectorStrategyConfig;
 import org.apache.druid.client.selector.ServerSelectorStrategy;
+import org.apache.druid.client.selector.StrictTierSelectorStrategyConfig;
 import org.apache.druid.client.selector.TierSelectorStrategy;
 import org.apache.druid.curator.ZkEnablementConfig;
 import org.apache.druid.discovery.NodeRole;
@@ -154,6 +155,7 @@ public class CliBroker extends ServerRunnable
 
           JsonConfigProvider.bind(binder, "druid.broker.select", TierSelectorStrategy.class);
           JsonConfigProvider.bind(binder, "druid.broker.select.tier.custom", CustomTierSelectorStrategyConfig.class);
+          JsonConfigProvider.bind(binder, "druid.broker.select.tier.strict", StrictTierSelectorStrategyConfig.class);
           JsonConfigProvider.bind(binder, "druid.broker.select.tier.preferred", PreferredTierSelectorStrategyConfig.class);
 
           JsonConfigProvider.bind(binder, "druid.broker.balancer", ServerSelectorStrategy.class);
