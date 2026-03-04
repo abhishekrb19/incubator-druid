@@ -35,17 +35,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Tier selector strategy that strictly filters servers based on a configured list of {@link StrictTierSelectorStrategyConfig#getPriorities()}.
- * <p>
- * Unlike other tier selector strategies that accept all servers, this strategy ONLY selects servers
- * whose priorities are explicitly listed in the configuration and doesn't fall back to {@link HighestPriorityTierSelectorStrategy}.
- * Servers with unconfigured priorities are ignored and logged as warnings.
- * <p>
+ * Tier selector that only considers servers whose priorities are in the configured {@link StrictTierSelectorStrategyConfig#getPriorities()}.
  * If no servers match the configured priorities, an empty list is returned, which may result in queries returning partial data.
- * This ensures strict enforcement of tier selection policies.
- * <p>
- * Configuration: {@code priorities} - A list of integer priority values to allow. Only servers
- * with these exact priority values will be considered for selection.
+ * This ensures strict query isolation amongst the servers.
  */
 public class StrictTierSelectorStrategy extends AbstractTierSelectorStrategy
 {
@@ -132,19 +124,11 @@ public class StrictTierSelectorStrategy extends AbstractTierSelectorStrategy
 
     // If no matching priorities found, return empty list
     if (filteredPrioritizedServers.isEmpty()) {
-      log.warn(
-          "Servers found with configured priorities %s. Available priorities were: %s",
-          this.configuredPriorities, prioritizedServers.keySet()
-      );
+      log.warn("No servers found with configured priorities %s. Available priorities were: %s", this.configuredPriorities, prioritizedServers.keySet());
       return List.of();
     }
 
-    log.info(
-        "Found [%d] filtered servers[%s] for query[%s]",
-        filteredPrioritizedServers.size(),
-        filteredPrioritizedServers,
-        query
-    );
+    log.info("Found [%d] filtered servers[%s] for query[%s]", filteredPrioritizedServers.size(), filteredPrioritizedServers, query);
     return super.pick(query, filteredPrioritizedServers, segment, numServersToPick);
   }
 

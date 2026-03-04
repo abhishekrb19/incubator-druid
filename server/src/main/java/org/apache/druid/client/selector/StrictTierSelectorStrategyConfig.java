@@ -20,17 +20,21 @@
 package org.apache.druid.client.selector;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.druid.error.DruidException;
+import org.apache.druid.utils.CollectionUtils;
 
 import java.util.List;
 
 /**
+ * Configuration for {@link StrictTierSelectorStrategy}.
+ * <p>
+ * Requires a non-empty {@code priorities} list. Order defines tier preference (first = highest).
  */
 public class StrictTierSelectorStrategyConfig
 {
   @JsonProperty
-  private List<Integer> priorities;
+  private final List<Integer> priorities;
 
-  @JsonProperty
   public List<Integer> getPriorities()
   {
     return priorities;
@@ -38,6 +42,14 @@ public class StrictTierSelectorStrategyConfig
 
   public StrictTierSelectorStrategyConfig(@JsonProperty("priorities") final List<Integer> priorities)
   {
+    if (CollectionUtils.isNullOrEmpty(priorities)) {
+      throw DruidException.forPersona(DruidException.Persona.OPERATOR)
+                          .ofCategory(DruidException.Category.INVALID_INPUT)
+                          .build(
+                              "priorities must be non-empty when configured on the Broker. Found priorities[%s].",
+                              priorities
+                          );
+    }
     this.priorities = priorities;
   }
 

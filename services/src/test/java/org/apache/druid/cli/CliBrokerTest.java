@@ -22,6 +22,7 @@ package org.apache.druid.cli;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Key;
+import com.google.inject.ProvisionException;
 import com.google.inject.Scopes;
 import com.google.inject.name.Names;
 import org.apache.druid.client.BrokerServerView;
@@ -48,6 +49,8 @@ import javax.validation.Validator;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class CliBrokerTest
 {
@@ -249,6 +252,30 @@ public class CliBrokerTest
 
     Assert.assertTrue(realtime instanceof StrictTierSelectorStrategy);
     Assert.assertEquals(List.of(2, 1, 0), ((StrictTierSelectorStrategy) realtime).getConfig().getPriorities());
+  }
+
+  @Test
+  public void testEmptyStrictPrioritiesThrowsException()
+  {
+    final Properties properties = new Properties();
+    properties.setProperty("druid.broker.select.tier", "strict");
+    properties.setProperty("druid.broker.realtime.select.tier", "strict");
+
+    final Injector injector = makeBrokerInjector(properties);
+    ProvisionException e1 = assertThrows(ProvisionException.class, () -> injector.getInstance(TierSelectorStrategy.class));
+    Assert.assertTrue(e1.getMessage().contains(
+        "Problem parsing object at prefix[druid.broker.select.tier.strict]: Cannot construct instance of"
+        + " `StrictTierSelectorStrategyConfig`, problem: priorities must be non-empty when configured on the Broker. Found priorities[null]."
+    ));
+
+    ProvisionException e2 = assertThrows(ProvisionException.class, () -> injector.getInstance(
+        Key.get(TierSelectorStrategy.class, Names.named(BrokerServerView.REALTIME_SELECTOR))
+    ));
+    Assert.assertTrue(e2.getMessage().contains(
+        "Problem parsing object at prefix[druid.broker.realtime.select.tier.strict]: Cannot construct"
+        + " instance of `StrictTierSelectorStrategyConfig`, problem: priorities must be non-empty when configured on the Broker. Found priorities[null]."
+    ));
+
   }
 
   @Test

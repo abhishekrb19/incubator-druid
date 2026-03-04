@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableList;
 import org.apache.druid.client.DirectDruidClient;
 import org.apache.druid.client.DruidServer;
 import org.apache.druid.client.QueryableDruidServer;
+import org.apache.druid.error.DruidException;
+import org.apache.druid.error.DruidExceptionMatcher;
 import org.apache.druid.java.util.common.DateTimes;
 import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.query.CloneQueryMode;
@@ -312,51 +314,16 @@ public class TierSelectorStrategyTest
   }
 
   @Test
-  public void testStrictTierSelectorStrategyEmptyPriorities()
+  public void testEmptyStrictTierPrioritiesThrowsException()
   {
-    DirectDruidClient client = EasyMock.createMock(DirectDruidClient.class);
-    QueryableDruidServer p0 = new QueryableDruidServer(
-        new DruidServer("test1", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 0),
-        client
-    );
-    QueryableDruidServer p1 = new QueryableDruidServer(
-        new DruidServer("test2", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 1),
-        client
-    );
-
-    final ServerSelector serverSelector = new ServerSelector(
-        new DataSegment(
-            "test",
-            Intervals.of("2013-01-01/2013-01-02"),
-            DateTimes.of("2013-01-01").toString(),
-            new HashMap<>(),
-            new ArrayList<>(),
-            new ArrayList<>(),
-            NoneShardSpec.instance(),
-            0,
-            0L
-        ),
-        new StrictTierSelectorStrategy(
+    DruidException druidException = Assert.assertThrows(
+        DruidException.class,
+        () -> new StrictTierSelectorStrategy(
             new ConnectionCountServerSelectorStrategy(),
             new StrictTierSelectorStrategyConfig(List.of())
-        ),
-        HistoricalFilter.IDENTITY_FILTER
+        )
     );
-
-    List<QueryableDruidServer> servers = Arrays.asList(p0, p1);
-    for (QueryableDruidServer server : servers) {
-      serverSelector.addServerAndUpdateSegment(server, serverSelector.getSegment());
-    }
-
-    // Should return null when priorities list is empty
-    Assert.assertNull(serverSelector.pick(null, CloneQueryMode.EXCLUDECLONES));
-    Assert.assertNull(serverSelector.pick(EasyMock.createMock(Query.class), CloneQueryMode.EXCLUDECLONES));
-
-    // Should return empty list for getCandidates
-    Assert.assertEquals(
-        List.of(),
-        serverSelector.getCandidates(3, CloneQueryMode.EXCLUDECLONES)
-    );
+    Assert.assertEquals("priorities must be non-empty when configured on the Broker. Found priorities[[]].", druidException.getMessage());
   }
 
   private void testTierSelectorStrategy(
