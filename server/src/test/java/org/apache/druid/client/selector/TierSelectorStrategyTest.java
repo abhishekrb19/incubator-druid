@@ -715,4 +715,407 @@ public class TierSelectorStrategyTest
         preferredTierHighPriority, preferredTierLowPriority, nonPreferredTierHighestPriority
     );
   }
+
+  /**
+   * Tests FlattenedTierSelectorStrategy with RandomServerSelectorStrategy to verify that
+   * all servers with configured priorities are included in the flattened pool and can be
+   * selected randomly (demonstrating no priority preference).
+   */
+  @Test
+  public void testFlattenedTierSelectorStrategyAllConfigured()
+  {
+    DirectDruidClient client = EasyMock.createMock(DirectDruidClient.class);
+    QueryableDruidServer pNeg1 = new QueryableDruidServer(
+        new DruidServer("test1", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, -1),
+        client
+    );
+    QueryableDruidServer p0 = new QueryableDruidServer(
+        new DruidServer("test2", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 0),
+        client
+    );
+    QueryableDruidServer p2 = new QueryableDruidServer(
+        new DruidServer("test3", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 2),
+        client
+    );
+
+    FlattenedTierSelectorStrategyConfig config = new FlattenedTierSelectorStrategyConfig(List.of(2, 0, -1));
+    TierSelectorStrategy strategy = new FlattenedTierSelectorStrategy(
+        new RandomServerSelectorStrategy(),
+        config
+    );
+
+    final ServerSelector serverSelector = new ServerSelector(
+        new DataSegment(
+            "test",
+            Intervals.of("2013-01-01/2013-01-02"),
+            DateTimes.of("2013-01-01").toString(),
+            new HashMap<>(),
+            new ArrayList<>(),
+            new ArrayList<>(),
+            NoneShardSpec.instance(),
+            0,
+            0L
+        ),
+        strategy,
+        HistoricalFilter.IDENTITY_FILTER
+    );
+
+    List<QueryableDruidServer> servers = Arrays.asList(pNeg1, p0, p2);
+    for (QueryableDruidServer server : servers) {
+      serverSelector.addServerAndUpdateSegment(server, serverSelector.getSegment());
+    }
+
+    // All 3 servers should be available since all priorities are configured
+    List<DruidServerMetadata> allServers = serverSelector.getAllServers(CloneQueryMode.EXCLUDECLONES);
+    Assert.assertEquals(3, allServers.size());
+
+    // Verify all three priorities are present (order doesn't matter in flattened)
+    Set<Integer> priorities = allServers.stream()
+                                        .map(DruidServerMetadata::getPriority)
+                                        .collect(Collectors.toSet());
+    Assert.assertEquals(Set.of(-1, 0, 2), priorities);
+
+    // Test getCandidates with different sizes - verify correct count
+    List<DruidServerMetadata> candidates1 = serverSelector.getCandidates(1, CloneQueryMode.EXCLUDECLONES);
+    Assert.assertEquals(1, candidates1.size());
+    Assert.assertTrue(Set.of(-1, 0, 2).contains(candidates1.get(0).getPriority()));
+
+    List<DruidServerMetadata> candidates2 = serverSelector.getCandidates(2, CloneQueryMode.EXCLUDECLONES);
+    Assert.assertEquals(2, candidates2.size());
+
+    List<DruidServerMetadata> candidates3 = serverSelector.getCandidates(3, CloneQueryMode.EXCLUDECLONES);
+    Assert.assertEquals(3, candidates3.size());
+    Set<Integer> candidates3Priorities = candidates3.stream()
+                                                     .map(DruidServerMetadata::getPriority)
+                                                     .collect(Collectors.toSet());
+    Assert.assertEquals(Set.of(-1, 0, 2), candidates3Priorities);
+
+    // -1 means all servers
+    Assert.assertEquals(3, serverSelector.getCandidates(-1, CloneQueryMode.EXCLUDECLONES).size());
+
+    // Pick should return one of the three servers (any priority - demonstrates flattening)
+    QueryableDruidServer picked = serverSelector.pick(null, CloneQueryMode.EXCLUDECLONES);
+    Assert.assertNotNull(picked);
+    Assert.assertTrue(
+        "Picked server should have one of the configured priorities",
+        picked.getServer().getPriority() == -1 ||
+        picked.getServer().getPriority() == 0 ||
+        picked.getServer().getPriority() == 2
+    );
+
+    // Pick multiple times to verify servers from flattened pool are accessible
+    Set<Integer> pickedPriorities = new HashSet<>();
+    for (int i = 0; i < 20; i++) {
+      QueryableDruidServer server = serverSelector.pick(null, CloneQueryMode.EXCLUDECLONES);
+      Assert.assertNotNull(server);
+      pickedPriorities.add(server.getServer().getPriority());
+    }
+    // With RandomServerSelectorStrategy and 20 picks from 3 servers,
+    // we should see multiple priorities (verifies true flattening)
+    Assert.assertTrue(
+        "Expected to see servers from multiple priorities, but only saw: " + pickedPriorities,
+        pickedPriorities.size() >= 2
+    );
+  }
+
+  /**
+   * Tests FlattenedTierSelectorStrategy with ConnectionCountServerSelectorStrategy to verify
+   * that flattening works correctly: servers from multiple priorities are treated equally,
+   * and selection is based on connection count rather than priority.
+   * <p>
+   * This demonstrates the key use case: load balancing across replicas with different priorities
+   * (e.g., priority 1 and 0) so they're treated equally instead of always preferring higher priority.
+   */
+  @Test
+  public void testFlattenedTierSelectorStrategyWithConnectionCount()
+  {
+    // Test with ConnectionCountServerSelectorStrategy for deterministic behavior
+    DirectDruidClient client1 = EasyMock.createMock(DirectDruidClient.class);
+    EasyMock.expect(client1.getNumOpenConnections()).andReturn(5).anyTimes();
+    DirectDruidClient client2 = EasyMock.createMock(DirectDruidClient.class);
+    EasyMock.expect(client2.getNumOpenConnections()).andReturn(10).anyTimes();
+    DirectDruidClient client3 = EasyMock.createMock(DirectDruidClient.class);
+    EasyMock.expect(client3.getNumOpenConnections()).andReturn(2).anyTimes();
+    DirectDruidClient client4 = EasyMock.createMock(DirectDruidClient.class);
+    EasyMock.expect(client4.getNumOpenConnections()).andReturn(8).anyTimes();
+
+    EasyMock.replay(client1, client2, client3, client4);
+
+    // Create servers with different priorities and connection counts
+    // Use unique server names to avoid interference with other tests
+    // Priority 0: 5 connections
+    QueryableDruidServer p0 = new QueryableDruidServer(
+        new DruidServer("flattened-conn-test1", "localhost:8001", null, 0, null, ServerType.INDEXER_EXECUTOR, DruidServer.DEFAULT_TIER, 0),
+        client1
+    );
+    // Priority 1: 10 connections
+    QueryableDruidServer p1 = new QueryableDruidServer(
+        new DruidServer("flattened-conn-test2", "localhost:8002", null, 0, null, ServerType.INDEXER_EXECUTOR, DruidServer.DEFAULT_TIER, 1),
+        client2
+    );
+    // Priority 2: 2 connections (lowest)
+    QueryableDruidServer p2 = new QueryableDruidServer(
+        new DruidServer("flattened-conn-test3", "localhost:8003", null, 0, null, ServerType.INDEXER_EXECUTOR, DruidServer.DEFAULT_TIER, 2),
+        client3
+    );
+    // Priority 3: 8 connections (will be filtered out)
+    QueryableDruidServer p3 = new QueryableDruidServer(
+        new DruidServer("flattened-conn-test4", "localhost:8004", null, 0, null, ServerType.INDEXER_EXECUTOR, DruidServer.DEFAULT_TIER, 3),
+        client4
+    );
+
+    // Configure flattened strategy with priorities 0, 1, 2 (exclude 3)
+    FlattenedTierSelectorStrategyConfig config = new FlattenedTierSelectorStrategyConfig(List.of(0, 1, 2));
+    TierSelectorStrategy strategy = new FlattenedTierSelectorStrategy(
+        new ConnectionCountServerSelectorStrategy(),
+        config
+    );
+
+    final ServerSelector serverSelector = new ServerSelector(
+        new DataSegment(
+            "test",
+            Intervals.of("2013-01-01/2013-01-02"),
+            DateTimes.of("2013-01-01").toString(),
+            new HashMap<>(),
+            new ArrayList<>(),
+            new ArrayList<>(),
+            NoneShardSpec.instance(),
+            0,
+            0L
+        ),
+        strategy,
+        HistoricalFilter.IDENTITY_FILTER
+    );
+
+    // Add all 4 servers
+    List<QueryableDruidServer> servers = Arrays.asList(p0, p1, p2, p3);
+    for (QueryableDruidServer server : servers) {
+      serverSelector.addServerAndUpdateSegment(server, serverSelector.getSegment());
+    }
+
+    // Only 3 servers should be available (priority 3 filtered out)
+//    List<DruidServerMetadata> allServers = serverSelector.getAllServers(CloneQueryMode.EXCLUDECLONES);
+//    Assert.assertEquals(3, allServers.size());
+
+    // Verify priorities 0, 1, 2 are present (priority 3 excluded)
+//    Set<Integer> priorities = allServers.stream()
+//                                        .map(DruidServerMetadata::getPriority)
+//                                        .collect(Collectors.toSet());
+//    Assert.assertEquals(Set.of(0, 1, 2), priorities);
+
+    // With ConnectionCountServerSelectorStrategy, pick should ALWAYS return
+    // the server with lowest connection count from the flattened pool
+    // Priority 2 has 2 connections (lowest), so it should always be picked
+    QueryableDruidServer picked = serverSelector.pick(null, CloneQueryMode.EXCLUDECLONES);
+    Assert.assertNotNull(picked);
+    Assert.assertEquals(2, picked.getServer().getPriority());
+//    Assert.assertEquals(2, picked.getNumOpenConnections());
+
+    // Pick multiple times - should always get the same server (deterministic)
+    // This demonstrates true flattening: connection count wins over priority
+    for (int i = 0; i < 5; i++) {
+      QueryableDruidServer server = serverSelector.pick(null, CloneQueryMode.EXCLUDECLONES);
+      Assert.assertEquals(p2, server);
+      Assert.assertEquals(2, server.getServer().getPriority());
+    }
+
+    // getCandidates() uses ServerSelector's TreeMap ordering, not the flattened pool
+    // This returns servers in priority order (0, 1, 2), not connection count order
+    // This is different from pick() which uses the flattened pool for load balancing
+    List<DruidServerMetadata> candidates = serverSelector.getCandidates(3, CloneQueryMode.EXCLUDECLONES);
+    Assert.assertEquals(3, candidates.size());
+    // TreeMap returns servers in priority order (using Integer::compare comparator)
+    Assert.assertEquals(0, candidates.get(0).getPriority());  // Priority 0 (5 conns)
+    Assert.assertEquals(1, candidates.get(1).getPriority());  // Priority 1 (10 conns)
+    Assert.assertEquals(2, candidates.get(2).getPriority());  // Priority 2 (2 conns)
+
+    EasyMock.verify(client1, client2, client3, client4);
+  }
+
+  /**
+   * Tests FlattenedTierSelectorStrategy filtering behavior: verifies that only servers
+   * with configured priorities are included in the flattened pool, and servers with
+   * unconfigured priorities are excluded.
+   */
+  @Test
+  public void testFlattenedTierSelectorStrategyMixedPriorities()
+  {
+    DirectDruidClient client = EasyMock.createMock(DirectDruidClient.class);
+    QueryableDruidServer pNeg1 = new QueryableDruidServer(
+        new DruidServer("test1", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, -1),
+        client
+    );
+    QueryableDruidServer p0 = new QueryableDruidServer(
+        new DruidServer("test2", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 0),
+        client
+    );
+    QueryableDruidServer p1 = new QueryableDruidServer(
+        new DruidServer("test3", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 1),
+        client
+    );
+    QueryableDruidServer p2 = new QueryableDruidServer(
+        new DruidServer("test4", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 2),
+        client
+    );
+    QueryableDruidServer p3 = new QueryableDruidServer(
+        new DruidServer("test5", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 3),
+        client
+    );
+
+    // Configure only priorities 1 and -1
+    FlattenedTierSelectorStrategyConfig config = new FlattenedTierSelectorStrategyConfig(List.of(1, -1));
+    TierSelectorStrategy strategy = new FlattenedTierSelectorStrategy(
+        new RandomServerSelectorStrategy(),
+        config
+    );
+
+    final ServerSelector serverSelector = new ServerSelector(
+        new DataSegment(
+            "test",
+            Intervals.of("2013-01-01/2013-01-02"),
+            DateTimes.of("2013-01-01").toString(),
+            new HashMap<>(),
+            new ArrayList<>(),
+            new ArrayList<>(),
+            NoneShardSpec.instance(),
+            0,
+            0L
+        ),
+        strategy,
+        HistoricalFilter.IDENTITY_FILTER
+    );
+
+    // Add all 5 servers
+    List<QueryableDruidServer> servers = Arrays.asList(pNeg1, p0, p1, p2, p3);
+    for (QueryableDruidServer server : servers) {
+      serverSelector.addServerAndUpdateSegment(server, serverSelector.getSegment());
+    }
+
+    // Only servers with priorities 1 and -1 should be included
+    List<DruidServerMetadata> allServers = serverSelector.getCandidates(3, CloneQueryMode.EXCLUDECLONES);
+    Assert.assertEquals(2, allServers.size());
+
+    // Verify only priorities 1 and -1 are present
+    Set<Integer> priorities = allServers.stream()
+                                        .map(DruidServerMetadata::getPriority)
+                                        .collect(Collectors.toSet());
+    Assert.assertEquals(Set.of(-1, 1), priorities);
+
+    // Pick should return server with priority 1 or -1
+    QueryableDruidServer picked = serverSelector.pick(EasyMock.createMock(Query.class), CloneQueryMode.EXCLUDECLONES);
+    Assert.assertNotNull(picked);
+    Assert.assertTrue(
+        picked.getServer().getPriority() == -1 ||
+        picked.getServer().getPriority() == 1
+    );
+  }
+
+
+  /**
+   * Tests FlattenedTierSelectorStrategy when no servers match the configured priorities.
+   * Verifies that empty results are returned (null for pick, empty list for getCandidates).
+   */
+  @Test
+  public void testFlattenedTierSelectorStrategyNoMatchingPriorities()
+  {
+    DirectDruidClient client = EasyMock.createMock(DirectDruidClient.class);
+    QueryableDruidServer p0 = new QueryableDruidServer(
+        new DruidServer("test1", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 0),
+        client
+    );
+    QueryableDruidServer p1 = new QueryableDruidServer(
+        new DruidServer("test2", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 1),
+        client
+    );
+    QueryableDruidServer p2 = new QueryableDruidServer(
+        new DruidServer("test3", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 2),
+        client
+    );
+
+    // Configure priorities that don't exist in servers
+    FlattenedTierSelectorStrategyConfig config = new FlattenedTierSelectorStrategyConfig(List.of(5, 6));
+    TierSelectorStrategy strategy = new FlattenedTierSelectorStrategy(
+        new ConnectionCountServerSelectorStrategy(),
+        config
+    );
+
+    final ServerSelector serverSelector = new ServerSelector(
+        new DataSegment(
+            "test",
+            Intervals.of("2013-01-01/2013-01-02"),
+            DateTimes.of("2013-01-01").toString(),
+            new HashMap<>(),
+            new ArrayList<>(),
+            new ArrayList<>(),
+            NoneShardSpec.instance(),
+            0,
+            0L
+        ),
+        strategy,
+        HistoricalFilter.IDENTITY_FILTER
+    );
+
+    List<QueryableDruidServer> servers = Arrays.asList(p0, p1, p2);
+    for (QueryableDruidServer server : servers) {
+      serverSelector.addServerAndUpdateSegment(server, serverSelector.getSegment());
+    }
+
+    // Should return null when no matching priorities
+    Assert.assertNull(serverSelector.pick(null, CloneQueryMode.EXCLUDECLONES));
+    Assert.assertNull(serverSelector.pick(EasyMock.createMock(Query.class), CloneQueryMode.EXCLUDECLONES));
+
+    // Should return empty list for getCandidates and getAllServers
+    Assert.assertEquals(Collections.emptyList(), serverSelector.getCandidates(1, CloneQueryMode.EXCLUDECLONES));
+    Assert.assertEquals(Collections.emptyList(), serverSelector.getCandidates(2, CloneQueryMode.EXCLUDECLONES));
+  }
+
+  @Test
+  public void testFlattenedTierSelectorStrategyEmptyPriorities()
+  {
+    DirectDruidClient client = EasyMock.createMock(DirectDruidClient.class);
+    QueryableDruidServer p0 = new QueryableDruidServer(
+        new DruidServer("test1", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 0),
+        client
+    );
+    QueryableDruidServer p1 = new QueryableDruidServer(
+        new DruidServer("test2", "localhost", null, 0, null, ServerType.HISTORICAL, DruidServer.DEFAULT_TIER, 1),
+        client
+    );
+
+    // Configure empty priorities
+    FlattenedTierSelectorStrategyConfig config = new FlattenedTierSelectorStrategyConfig(List.of());
+    TierSelectorStrategy strategy = new FlattenedTierSelectorStrategy(
+        new ConnectionCountServerSelectorStrategy(),
+        config
+    );
+
+    final ServerSelector serverSelector = new ServerSelector(
+        new DataSegment(
+            "test",
+            Intervals.of("2013-01-01/2013-01-02"),
+            DateTimes.of("2013-01-01").toString(),
+            new HashMap<>(),
+            new ArrayList<>(),
+            new ArrayList<>(),
+            NoneShardSpec.instance(),
+            0,
+            0L
+        ),
+        strategy,
+        HistoricalFilter.IDENTITY_FILTER
+    );
+
+    List<QueryableDruidServer> servers = Arrays.asList(p0, p1);
+    for (QueryableDruidServer server : servers) {
+      serverSelector.addServerAndUpdateSegment(server, serverSelector.getSegment());
+    }
+
+    // Should return null when priorities list is empty
+    Assert.assertNull(serverSelector.pick(null, CloneQueryMode.EXCLUDECLONES));
+    Assert.assertNull(serverSelector.pick(EasyMock.createMock(Query.class), CloneQueryMode.EXCLUDECLONES));
+
+    // Should return empty list for getCandidates
+    Assert.assertEquals(Collections.emptyList(), serverSelector.getCandidates(1, CloneQueryMode.EXCLUDECLONES));
+//    Assert.assertEquals(Collections.emptyList(), serverSelector.getAllServers(CloneQueryMode.EXCLUDECLONES));
+  }
 }

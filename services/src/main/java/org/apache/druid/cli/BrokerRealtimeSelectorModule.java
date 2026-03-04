@@ -29,6 +29,8 @@ import com.google.inject.name.Names;
 import org.apache.druid.client.BrokerServerView;
 import org.apache.druid.client.selector.CustomTierSelectorStrategy;
 import org.apache.druid.client.selector.CustomTierSelectorStrategyConfig;
+import org.apache.druid.client.selector.FlattenedTierSelectorStrategy;
+import org.apache.druid.client.selector.FlattenedTierSelectorStrategyConfig;
 import org.apache.druid.client.selector.PreferredTierSelectorStrategy;
 import org.apache.druid.client.selector.PreferredTierSelectorStrategyConfig;
 import org.apache.druid.client.selector.ServerSelectorStrategy;
@@ -164,6 +166,15 @@ public class BrokerRealtimeSelectorModule implements DruidModule
 
         log.info("Creating StrictTierSelectorStrategy for realtime servers with config[%s]", config);
         return new StrictTierSelectorStrategy(realtimeServerSelectorStrategy, config);
+      } else if (FlattenedTierSelectorStrategy.TYPE.equals(realtimeTier)) {
+        final FlattenedTierSelectorStrategyConfig config = configurator.configurate(
+            properties,
+            REALTIME_SELECT_TIER_PROPERTY + "." + realtimeTier,
+            FlattenedTierSelectorStrategyConfig.class
+        );
+
+        log.info("Creating FlattenedTierSelectorStrategy for realtime servers with config[%s]", config);
+        return new FlattenedTierSelectorStrategy(realtimeServerSelectorStrategy, config);
       } else {
         return configurator.configurate(properties, "druid.broker.realtime.select", TierSelectorStrategy.class);
       }

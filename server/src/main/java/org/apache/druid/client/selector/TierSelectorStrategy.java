@@ -40,6 +40,7 @@ import java.util.Set;
     @JsonSubTypes.Type(name = CustomTierSelectorStrategy.TYPE, value = CustomTierSelectorStrategy.class),
     @JsonSubTypes.Type(name = PreferredTierSelectorStrategy.TYPE, value = PreferredTierSelectorStrategy.class),
     @JsonSubTypes.Type(name = StrictTierSelectorStrategy.TYPE, value = StrictTierSelectorStrategy.class),
+    @JsonSubTypes.Type(name = FlattenedTierSelectorStrategy.TYPE, value = FlattenedTierSelectorStrategy.class),
 })
 public interface TierSelectorStrategy
 {
