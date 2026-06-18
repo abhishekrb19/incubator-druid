@@ -520,7 +520,7 @@ public abstract class SeekableStreamIndexTaskRunner<PartitionIdType, SequenceOff
                                                             .stream()
                                                             .map(SegmentIdWithShardSpec::asSegmentId)
                                                             .collect(Collectors.toList());
-        restartSpanned.forEach(shardSpecCollector::markRestartSpanned);
+        restartSpanned.forEach(shardSpecCollector::onSegmentRestored);
         if (!restartSpanned.isEmpty()) {
           log.warn(
               "Disabling partition-filter pruning for %d segment(s) restored across a task restart: %s",

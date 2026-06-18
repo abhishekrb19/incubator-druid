@@ -94,7 +94,7 @@ public class DimensionValueSetCollector implements StreamingShardSpecCollector
   }
 
   @Override
-  public void markRestartSpanned(SegmentId segmentId)
+  public void onSegmentRestored(SegmentId segmentId)
   {
     restartSpanned.add(segmentId);
   }
