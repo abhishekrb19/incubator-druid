@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import org.apache.druid.client.DruidServer;
 import org.apache.druid.data.input.InputRow;
+import org.apache.druid.data.input.MapBasedInputRow;
 import org.apache.druid.data.input.impl.DimensionsSpec;
 import org.apache.druid.data.input.impl.JsonInputFormat;
 import org.apache.druid.data.input.impl.StringDimensionSchema;
@@ -82,10 +83,12 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -365,7 +368,7 @@ public class SeekableStreamIndexTaskRunnerTest
         Map.of("partition", "100")
     );
     Mockito.when(task.getTuningConfig().getStreamingPartitionsSpec())
-           .thenReturn(new StreamingPartitionsSpec(List.of("tenant")));
+           .thenReturn(new DimensionValueSetPartitionsSpec(List.of("tenant")));
 
     final DataSegment segment = createSingleSegment();
     final SegmentId lookupKey = segment.getId();
@@ -400,7 +403,7 @@ public class SeekableStreamIndexTaskRunnerTest
         ImmutableMap.of("partition", "100")
     );
     Mockito.when(task.getTuningConfig().getStreamingPartitionsSpec())
-           .thenReturn(new StreamingPartitionsSpec(List.of("tenant")));
+           .thenReturn(new DimensionValueSetPartitionsSpec(List.of("tenant")));
 
     final DataSegment segment = createSingleSegment();
     final SegmentId lookupKey = segment.getId();
@@ -435,7 +438,7 @@ public class SeekableStreamIndexTaskRunnerTest
         ImmutableMap.of("partition", "100")
     );
     Mockito.when(task.getTuningConfig().getStreamingPartitionsSpec())
-           .thenReturn(new StreamingPartitionsSpec(List.of("tenant")));
+           .thenReturn(new DimensionValueSetPartitionsSpec(List.of("tenant")));
 
     // Two partitions in one interval: partition 0 was restored from disk across a restart, partition 1 created after.
     final List<DataSegment> sameIntervalPartitions = CreateDataSegments
@@ -480,14 +483,14 @@ public class SeekableStreamIndexTaskRunnerTest
         ImmutableMap.of("partition", "100")
     );
     Mockito.when(task.getTuningConfig().getStreamingPartitionsSpec())
-           .thenReturn(new StreamingPartitionsSpec(List.of("tenant", "region")));
+           .thenReturn(new DimensionValueSetPartitionsSpec(List.of("tenant", "region")));
 
     final DataSegment segment = createSingleSegment();
     final SegmentId lookupKey = segment.getId();
 
-    // tenant saw a non-null value and (in another row) a null/missing value; region only saw non-null values.
-    observe(runner, lookupKey, "tenant", "tenant_a", null);
-    observe(runner, lookupKey, "region", "us-west");
+    // Row 1: tenant=tenant_a, region=us-west. Row 2: region=us-west but tenant missing (a null/missing tenant value).
+    collectRow(runner, lookupKey, Map.of("tenant", "tenant_a", "region", "us-west"));
+    collectRow(runner, lookupKey, Map.of("region", "us-west"));
 
     final DataSegment annotated = runner.annotateSegmentWithPartitionDimensionValues(segment);
 
@@ -518,7 +521,7 @@ public class SeekableStreamIndexTaskRunnerTest
         ImmutableMap.of("partition", "100")
     );
     Mockito.when(task.getTuningConfig().getStreamingPartitionsSpec())
-           .thenReturn(new StreamingPartitionsSpec(List.of("tenant")));
+           .thenReturn(new DimensionValueSetPartitionsSpec(List.of("tenant")));
 
     final DataSegment segment = createSingleSegment();
     final SegmentId lookupKey = segment.getId();
@@ -549,7 +552,7 @@ public class SeekableStreamIndexTaskRunnerTest
         ImmutableMap.of("partition", "100")
     );
     Mockito.when(task.getTuningConfig().getStreamingPartitionsSpec())
-           .thenReturn(new StreamingPartitionsSpec(List.of("tenant")));
+           .thenReturn(new DimensionValueSetPartitionsSpec(List.of("tenant")));
 
     // No observe(...) call: nothing was recorded for this segment.
     final DataSegment annotated = runner.annotateSegmentWithPartitionDimensionValues(createSingleSegment());
@@ -591,6 +594,11 @@ public class SeekableStreamIndexTaskRunnerTest
         .get(0);
   }
 
+  /**
+   * Feeds the collector one row per value through its real {@link StreamingShardSpecCollector#collect} API. A
+   * {@code null} value is sent as a row missing {@code dimension} (so {@code getDimension} returns empty and the
+   * collector records a null), matching how a null/missing ingested value is observed in production.
+   */
   private static void observe(
       SeekableStreamIndexTaskRunner runner,
       SegmentId segmentId,
@@ -599,13 +607,37 @@ public class SeekableStreamIndexTaskRunnerTest
   )
   {
     for (String value : values) {
-      runner.recordObservedDimensionValueForTest(segmentId, dimension, value);
+      collectRow(runner, segmentId, value == null ? Map.of() : Map.of(dimension, value));
     }
+  }
+
+  /**
+   * Feeds the collector a single row built from {@code event} through its real
+   * {@link StreamingShardSpecCollector#collect} API. A dimension absent from {@code event} is observed as a
+   * null/missing value.
+   */
+  private static void collectRow(
+      SeekableStreamIndexTaskRunner runner,
+      SegmentId segmentId,
+      Map<String, Object> event
+  )
+  {
+    final StreamingShardSpecCollector collector = Objects.requireNonNull(
+        runner.getShardSpecCollector(),
+        "streamingPartitionsSpec must be configured before collecting rows"
+    );
+    collector.collect(
+        segmentId,
+        new MapBasedInputRow(DateTimes.nowUtc(), new ArrayList<>(event.keySet()), event)
+    );
   }
 
   private static void markRestartSpanned(SeekableStreamIndexTaskRunner runner, SegmentId segmentId)
   {
-    runner.markSegmentRestartSpannedForTest(segmentId);
+    Objects.requireNonNull(
+        runner.getShardSpecCollector(),
+        "streamingPartitionsSpec must be configured before marking restart-spanned segments"
+    ).markRestartSpanned(segmentId);
   }
 
   private TaskToolbox createTaskToolbox()
