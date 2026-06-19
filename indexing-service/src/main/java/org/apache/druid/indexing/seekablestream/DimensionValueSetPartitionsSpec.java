@@ -22,6 +22,7 @@ package org.apache.druid.indexing.seekablestream;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.druid.error.DruidException;
 
 import javax.annotation.Nullable;
 import java.util.Collections;
@@ -35,20 +36,37 @@ import java.util.Objects;
  * {@link DimensionValueSetCollector}.
  *
  * <p>Use low-to-medium cardinality dimensions; the {@code partitionDimensions} here should be kept in sync with the
- * {@code partitionDimensions} of the compaction config for the same datasource.
+ * {@code partitionDimensions} of the compaction config for the same datasource. {@code maxValuesPerDimension}, if set,
+ * caps the number of distinct values recorded for a dimension on a single segment: a segment whose observed values for a
+ * dimension exceed the cap omits that dimension from its filter map (pruning is disabled for it on that segment),
+ * guarding against shard-spec bloat from an unexpectedly high-cardinality dimension.
  */
 public class DimensionValueSetPartitionsSpec implements StreamingPartitionsSpec
 {
   public static final String TYPE = "dim_value_set";
 
   private final List<String> partitionDimensions;
+  @Nullable
+  private final Integer maxValuesPerDimension;
 
   @JsonCreator
   public DimensionValueSetPartitionsSpec(
-      @JsonProperty("partitionDimensions") @Nullable List<String> partitionDimensions
+      @JsonProperty("partitionDimensions") @Nullable List<String> partitionDimensions,
+      @JsonProperty("maxValuesPerDimension") @Nullable Integer maxValuesPerDimension
   )
   {
     this.partitionDimensions = partitionDimensions == null ? Collections.emptyList() : partitionDimensions;
+    if (maxValuesPerDimension != null && maxValuesPerDimension <= 0) {
+      throw DruidException.forPersona(DruidException.Persona.USER)
+                          .ofCategory(DruidException.Category.INVALID_INPUT)
+                          .build("maxValuesPerDimension must be > 0, got [%d]", maxValuesPerDimension);
+    }
+    this.maxValuesPerDimension = maxValuesPerDimension;
+  }
+
+  public DimensionValueSetPartitionsSpec(@Nullable List<String> partitionDimensions)
+  {
+    this(partitionDimensions, null);
   }
 
   @JsonProperty
@@ -59,6 +77,14 @@ public class DimensionValueSetPartitionsSpec implements StreamingPartitionsSpec
   }
 
   @Nullable
+  @JsonProperty
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public Integer getMaxValuesPerDimension()
+  {
+    return maxValuesPerDimension;
+  }
+
+  @Nullable
   @Override
   public StreamingShardSpecCollector createCollector()
   {
@@ -66,7 +92,7 @@ public class DimensionValueSetPartitionsSpec implements StreamingPartitionsSpec
     if (partitionDimensions.isEmpty()) {
       return null;
     }
-    return new DimensionValueSetCollector(partitionDimensions);
+    return new DimensionValueSetCollector(partitionDimensions, maxValuesPerDimension);
   }
 
   @Override
@@ -79,18 +105,22 @@ public class DimensionValueSetPartitionsSpec implements StreamingPartitionsSpec
       return false;
     }
     DimensionValueSetPartitionsSpec that = (DimensionValueSetPartitionsSpec) o;
-    return Objects.equals(partitionDimensions, that.partitionDimensions);
+    return Objects.equals(partitionDimensions, that.partitionDimensions)
+           && Objects.equals(maxValuesPerDimension, that.maxValuesPerDimension);
   }
 
   @Override
   public int hashCode()
   {
-    return Objects.hash(partitionDimensions);
+    return Objects.hash(partitionDimensions, maxValuesPerDimension);
   }
 
   @Override
   public String toString()
   {
-    return "DimensionValueSetPartitionsSpec{partitionDimensions=" + partitionDimensions + '}';
+    return "DimensionValueSetPartitionsSpec{"
+           + "partitionDimensions=" + partitionDimensions
+           + ", maxValuesPerDimension=" + maxValuesPerDimension
+           + '}';
   }
 }

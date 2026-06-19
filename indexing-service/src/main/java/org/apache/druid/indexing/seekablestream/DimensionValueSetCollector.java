@@ -21,10 +21,12 @@ package org.apache.druid.indexing.seekablestream;
 
 import com.google.common.collect.Sets;
 import org.apache.druid.data.input.InputRow;
+import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.timeline.partition.DimensionValueSetShardSpec;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -49,12 +51,23 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class DimensionValueSetCollector implements StreamingShardSpecCollector
 {
+  private static final Logger log = new Logger(DimensionValueSetCollector.class);
+
   private final List<String> partitionDimensions;
+
+  /**
+   * If non-null, the maximum number of distinct values to record for a single dimension on a single segment. A segment
+   * whose observed values for a dimension exceed this cap omits that dimension from its stamped filter map (pruning
+   * disabled for it on that segment), guarding against shard-spec bloat.
+   */
+  @Nullable
+  private final Integer maxValuesPerDimension;
 
   /**
    * Observed values per tracked dimension, keyed by segment identifier. Inner sets permit null and are written by the
    * run loop / read by the publish path under their own monitor. Entries are removed on successful publish via
-   * {@link #forget}; a publish failure is terminal for the task, so any remaining entries are reclaimed at task teardown.
+   * {@link #onSegmentPublished}; a publish failure is terminal for the task, so any remaining entries are reclaimed at
+   * task teardown.
    */
   private final ConcurrentHashMap<SegmentId, Map<String, Set<String>>> observed = new ConcurrentHashMap<>();
 
@@ -65,9 +78,10 @@ public class DimensionValueSetCollector implements StreamingShardSpecCollector
    */
   private final Set<SegmentId> restartSpanned = Sets.newConcurrentHashSet();
 
-  public DimensionValueSetCollector(List<String> partitionDimensions)
+  public DimensionValueSetCollector(List<String> partitionDimensions, @Nullable Integer maxValuesPerDimension)
   {
     this.partitionDimensions = partitionDimensions;
+    this.maxValuesPerDimension = maxValuesPerDimension;
   }
 
   @Override
@@ -123,6 +137,20 @@ public class DimensionValueSetCollector implements StreamingShardSpecCollector
         final List<String> snapshot;
         synchronized (vals) {
           if (vals.isEmpty()) {
+            continue;
+          }
+          // Over-cap: omit this dim from the stamped filter map (still a DimensionValueSetShardSpec for
+          // class-uniformity; possibleInDomain treats an absent dim as unconstrained, so pruning is disabled
+          // for it on this segment).
+          if (maxValuesPerDimension != null && vals.size() > maxValuesPerDimension) {
+            log.warn(
+                "Segment[%s] dimension[%s] observed [%d] distinct values, exceeds maxValuesPerDimension[%d]; "
+                + "pruning disabled for this dimension on this segment.",
+                lookupKey,
+                dim,
+                vals.size(),
+                maxValuesPerDimension
+            );
             continue;
           }
           snapshot = new ArrayList<>(vals);
