@@ -509,9 +509,8 @@ public abstract class SeekableStreamIndexTaskRunner<PartitionIdType, SequenceOff
           }
       );
 
-      // Segments restored from disk span a task restart; their pre-restart values can't be re-observed. Hand the
-      // restored set to the collector, which decides how restoration affects its shard specs (e.g. falling back to a
-      // non-pruning spec at publish rather than stamping an incomplete filter).
+      // Segments already in the appenderator at startup were restored from disk across a task restart; tell the
+      // collector so it can handle their incomplete state (see StreamingShardSpecCollector#onSegmentsRestored).
       if (shardSpecCollector != null) {
         shardSpecCollector.onSegmentsRestored(
             appenderator.getSegments()
@@ -1055,7 +1054,7 @@ public abstract class SeekableStreamIndexTaskRunner<PartitionIdType, SequenceOff
   {
     log.debug("Publishing segments for sequence [%s].", sequenceMetadata);
 
-    // annotateSegmentWithPartitionDimensionValues returns the segment unchanged when partition filters are not configured,
+    // annotateSegmentWithPartitionDimensionValues returns the segment unchanged when the feature is off (no collector),
     // so it is always safe to apply here.
     final ListenableFuture<SegmentsAndCommitMetadata> publishFuture = Futures.transform(
         driver.publish(
