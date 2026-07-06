@@ -34,6 +34,7 @@ import org.apache.druid.segment.PartialQueryableIndexSegment;
 import org.apache.druid.segment.ReferenceCountingCloseableObject;
 import org.apache.druid.segment.Segment;
 import org.apache.druid.segment.column.ColumnConfig;
+import org.apache.druid.segment.file.PartialSegmentDownloadListener;
 import org.apache.druid.segment.file.PartialSegmentFileMapperV10;
 import org.apache.druid.segment.file.SegmentFileBuilder;
 import org.apache.druid.segment.file.SegmentFileMetadata;
@@ -289,8 +290,7 @@ public class PartialSegmentMetadataCacheEntry implements SegmentCacheEntry, Resi
    * the race where the entry's reservation gets evicted (e.g. cache picks a weak entry whose lone hold was released
    * by a concurrent canceler, or {@link StorageLocation#release} fires on the static entry from a coordinator drop)
    * while mount() is still in progress. Without this check, mount would commit local state for an entry the cache
-   * manager no longer knows about, leaking files on disk and memory mappings. Mirrors the same defensive check in
-   * {@code SegmentCacheEntry.mount}. Returns normally if rollback fires; callers detect via {@link #isMounted}.
+   * manager no longer knows about, leaking files on disk and memory mappings.
    */
   private void verifyStillReservedOrRollback(StorageLocation mountLocation)
   {
@@ -336,7 +336,8 @@ public class PartialSegmentMetadataCacheEntry implements SegmentCacheEntry, Resi
           jsonMapper,
           localCacheDir,
           targetFilename,
-          externalFilenames
+          externalFilenames,
+          new WeakLoadTracker(mountLocation)
       );
 
       final long sizeToAdjust;
@@ -884,21 +885,21 @@ public class PartialSegmentMetadataCacheEntry implements SegmentCacheEntry, Resi
   }
 
   /**
-   * Structural inference of the parent bundles that the given {@code bundleName} depends on within this segment.
-   * Single source of truth for both bootstrap (which post-filters by what's actually restorable on disk) and the
-   * query-time acquire path (which uses the result directly to seed
-   * {@link PartialSegmentBundleCacheEntry#forBundle}'s {@code parentEntryIds}).
+   * Inference of the parent bundles that the given {@code bundleName} depends on within this segment.
    * <p>
-   * Today's rule is structural and trivial: any non-base bundle depends on the base bundle. The base bundle and the
-   * {@link SegmentFileBuilder#ROOT_BUNDLE_NAME root bundle} have no parents, the root bundle owns everything written
-   * without an explicit {@code startFileBundle} call (older fileGroup-less segments, or shared internal metadata) and
-   * is structurally a peer of the base. If future writers introduce richer dependency graphs, the rule will need to
-   * grow, likely by reading dependency metadata that the writer records explicitly rather than by inference here.
+   * The rule is uniform: the base bundle and the {@link SegmentFileBuilder#ROOT_BUNDLE_NAME root bundle} have no
+   * parents (the root bundle owns everything written without an explicit {@code startFileBundle} call, for older
+   * fileGroup-less segments, or any future shared internal metadata and is structurally a peer of the base);
+   * every other bundle depends on the base bundle, but only if this segment actually carries one.
+   * <p>
+   * If future writers introduce richer dependency graphs, the rule will need to grow, likely by reading dependency
+   * metadata the writer records explicitly.
    */
   public List<PartialSegmentBundleCacheEntryIdentifier> inferParentBundles(String bundleName)
   {
     if (Projections.BASE_TABLE_PROJECTION_NAME.equals(bundleName)
-        || SegmentFileBuilder.ROOT_BUNDLE_NAME.equals(bundleName)) {
+        || SegmentFileBuilder.ROOT_BUNDLE_NAME.equals(bundleName)
+        || !hasBaseBundle()) {
       return List.of();
     }
     return List.of(
@@ -907,6 +908,17 @@ public class PartialSegmentMetadataCacheEntry implements SegmentCacheEntry, Resi
             Projections.BASE_TABLE_PROJECTION_NAME
         )
     );
+  }
+
+  /**
+   * Whether this segment carries a {@code __base} bundle (shared base-table column data). Probed from the mounted file
+   * mapper's actual bundle set; returns false when the entry is not mounted.
+   */
+  private boolean hasBaseBundle()
+  {
+    final PartialSegmentFileMapperV10 mapper = getFileMapper();
+    return mapper != null
+           && PartialSegmentBundleCacheEntry.bundleNames(mapper).contains(Projections.BASE_TABLE_PROJECTION_NAME);
   }
 
   /**
@@ -966,6 +978,21 @@ public class PartialSegmentMetadataCacheEntry implements SegmentCacheEntry, Resi
   {
     if (file.exists() && !file.delete()) {
       LOG.warn("Failed to delete header file[%s] during unmount of partial segment[%s]", file, segmentId);
+    }
+  }
+
+  private record WeakLoadTracker(StorageLocation mountLocation) implements PartialSegmentDownloadListener
+  {
+    @Override
+    public void onBytesDownloaded(long bytes)
+    {
+      mountLocation.trackWeakLoad(bytes);
+    }
+
+    @Override
+    public void onRangeRead(long bytes, long nanos)
+    {
+      mountLocation.trackWeakRangeRead(bytes, nanos);
     }
   }
 }
