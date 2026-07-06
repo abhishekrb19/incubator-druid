@@ -256,7 +256,7 @@ public abstract class SeekableStreamIndexTaskRunner<PartitionIdType, SequenceOff
   /**
    * Per-task collector that accumulates information from ingested rows and stamps each published segment with a prunable
    * shard spec, or {@code null} when {@link SeekableStreamIndexTaskTuningConfig#getStreamingPartitionsSpec()} is unset
-   * or has nothing to collect (feature off). Created once in the constructor and shared across the run loop and the
+   * or has nothing to collect. Created once in the constructor and shared across the run loop and the
    * publish path (which runs on the future-completing thread via {@code MoreExecutors.directExecutor()}).
    */
   @Nullable
@@ -1030,8 +1030,8 @@ public abstract class SeekableStreamIndexTaskRunner<PartitionIdType, SequenceOff
   }
 
   /**
-   * Returns the per-task {@link StreamingShardSpecCollector} created in the constructor, or {@code null} when the
-   * feature is off (no {@link StreamingPartitionsSpec}, or nothing to collect).
+   * Returns the per-task {@link StreamingShardSpecCollector} created in the constructor, or {@code null} when no
+   * {@link StreamingPartitionsSpec} is configured (or the configured one has nothing to collect).
    */
   @Nullable
   @VisibleForTesting
@@ -1041,8 +1041,9 @@ public abstract class SeekableStreamIndexTaskRunner<PartitionIdType, SequenceOff
   }
 
   /**
-   * Delegates to {@link StreamingShardSpecCollector#annotate} to stamp a segment with a prunable shard spec at publish
-   * time, returning the segment unchanged when the feature is off. Safe to apply unconditionally on the publish path.
+   * Delegates to {@link StreamingShardSpecCollector#annotate} to stamp a segment's shard spec at publish time,
+   * returning the segment unchanged when no {@link StreamingPartitionsSpec} is configured. Safe to apply
+   * unconditionally on the publish path.
    */
   @VisibleForTesting
   DataSegment annotateSegmentWithPartitionDimensionValues(DataSegment s)

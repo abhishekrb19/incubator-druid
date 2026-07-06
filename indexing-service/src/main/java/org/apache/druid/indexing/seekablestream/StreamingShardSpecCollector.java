@@ -28,10 +28,10 @@ import java.util.Collection;
 
 /**
  * Accumulates information from the rows a streaming task ingests and, at publish time, stamps each segment with a
- * prunable {@link ShardSpec} derived from that information, so the broker can prune the segment at query time without
- * waiting for compaction. This is the pluggable strategy behind {@link StreamingPartitionsSpec}: a new strategy is added
- * by writing a {@link StreamingPartitionsSpec} subtype plus a matching collector, without touching the task runner.
- * {@code DimensionValueSetCollector} is the built-in implementation.
+ * {@link ShardSpec} derived from that information. This is the pluggable strategy behind {@link StreamingPartitionsSpec}:
+ * a new strategy is added by writing a {@link StreamingPartitionsSpec} subtype plus a matching collector, without
+ * touching the task runner. The built-in {@code DimensionValueSetCollector} records each segment's observed dimension
+ * values so the broker can prune it at query time without waiting for compaction.
  *
  * <p>One instance is created per task run (via {@link StreamingPartitionsSpec#createCollector()}) and shared across all
  * of that task's segments. Implementations <b>must</b> be thread-safe: {@link #collect} and {@link #annotate} can run

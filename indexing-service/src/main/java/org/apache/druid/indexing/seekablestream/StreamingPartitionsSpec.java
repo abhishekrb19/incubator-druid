@@ -49,8 +49,8 @@ public interface StreamingPartitionsSpec
   /**
    * Creates a task-scoped {@link StreamingShardSpecCollector} that accumulates per-row information and stamps each
    * segment's shard spec with it at publish time. Returns {@code null} when this spec is configured such that there is
-   * nothing to collect (e.g. no dimensions), in which case the feature is effectively off and segments are published
-   * unchanged. One collector is created per task run.
+   * nothing to collect (e.g. no dimensions), in which case no collector runs and segments are published unchanged.
+   * One collector is created per task run.
    */
   @Nullable
   StreamingShardSpecCollector createCollector();
