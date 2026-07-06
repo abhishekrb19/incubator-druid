@@ -39,9 +39,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * {@link StreamingShardSpecCollector} for {@link DimensionValueSetPartitionsSpec}: it records, per segment, the distinct
- * values observed for each configured dimension and stamps each segment with a {@link DimensionValueSetShardSpec} at
- * publish time so the broker can prune it.
+ * {@link StreamingShardSpecCollector} for {@link DimensionValueSetPartitionsSpec}: it records, per segment, the
+ * distinct values observed for each configured dimension and stamps each segment with a
+ * {@link DimensionValueSetShardSpec} at publish time so the broker can prune it.
  *
  * <p>A {@code null} element denotes an observed null/missing value (kept distinct from {@code ""}) so that
  * {@code IS NULL} queries are not pruned.
@@ -80,7 +80,7 @@ public class DimensionValueSetCollector implements StreamingShardSpecCollector
    * such segments are published with an empty-filter (non-pruning) {@link DimensionValueSetShardSpec} instead of one
    * declaring observed values.
    */
-  private final Set<SegmentId> restartSpanned = Sets.newConcurrentHashSet();
+  private final Set<SegmentId> restartSpannedSegments = Sets.newConcurrentHashSet();
 
   public DimensionValueSetCollector(List<String> partitionDimensions, @Nullable Integer maxValuesPerDimension)
   {
@@ -118,7 +118,7 @@ public class DimensionValueSetCollector implements StreamingShardSpecCollector
     if (segmentIds.isEmpty()) {
       return;
     }
-    restartSpanned.addAll(segmentIds);
+    restartSpannedSegments.addAll(segmentIds);
     log.warn(
         "Disabling partition-filter pruning for %d segment(s) restored across a task restart: %s",
         segmentIds.size(),
@@ -127,9 +127,9 @@ public class DimensionValueSetCollector implements StreamingShardSpecCollector
   }
 
   /**
-   * Stamps a segment with a {@link DimensionValueSetShardSpec} declaring its observed dimension values so the broker can
-   * prune it. We always return a {@link DimensionValueSetShardSpec}, falling back to an empty (non-pruning) filter map
-   * when values can't be safely declared, so segments in an interval stay class-uniform for
+   * Stamps a segment with a {@link DimensionValueSetShardSpec} declaring its observed dimension values so the broker
+   * can prune it. We always return a {@link DimensionValueSetShardSpec}, falling back to an empty (non-pruning) filter
+   * map when values can't be safely declared, so segments in an interval stay class-uniform for
    * {@link org.apache.druid.segment.realtime.appenderator.SegmentPublisherHelper}. A null observed value is carried
    * through (distinct from {@code ""}) so {@code IS NULL} queries are not pruned.
    */
@@ -140,7 +140,7 @@ public class DimensionValueSetCollector implements StreamingShardSpecCollector
     final SegmentId lookupKey = s.getId();
     final Map<String, Set<String>> segObserved = observedPartitionDimValuesBySegment.get(lookupKey);
     // Leave filters empty for restart-spanned segments: their pre-restart values can't be re-observed.
-    if (!restartSpanned.contains(lookupKey) && segObserved != null) {
+    if (!restartSpannedSegments.contains(lookupKey) && segObserved != null) {
       for (String dim : partitionDimensions) {
         final Set<String> vals = segObserved.get(dim);
         if (vals == null) {
@@ -186,6 +186,6 @@ public class DimensionValueSetCollector implements StreamingShardSpecCollector
   public void onSegmentPublished(SegmentId segmentId)
   {
     observedPartitionDimValuesBySegment.remove(segmentId);
-    restartSpanned.remove(segmentId);
+    restartSpannedSegments.remove(segmentId);
   }
 }
