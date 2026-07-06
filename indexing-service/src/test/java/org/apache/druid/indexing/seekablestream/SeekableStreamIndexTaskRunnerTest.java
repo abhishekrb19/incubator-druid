@@ -365,10 +365,9 @@ public class SeekableStreamIndexTaskRunnerTest
   {
     final TestSeekableStreamIndexTaskRunner runner = createRunner(
         Map.of("partition", "0"),
-        Map.of("partition", "100")
+        Map.of("partition", "100"),
+        new DimensionValueSetPartitionsSpec(List.of("tenant"))
     );
-    Mockito.when(task.getTuningConfig().getStreamingPartitionsSpec())
-           .thenReturn(new DimensionValueSetPartitionsSpec(List.of("tenant")));
 
     final DataSegment segment = createSingleSegment();
     final SegmentId lookupKey = segment.getId();
@@ -400,10 +399,9 @@ public class SeekableStreamIndexTaskRunnerTest
   {
     final TestSeekableStreamIndexTaskRunner runner = createRunner(
         ImmutableMap.of("partition", "0"),
-        ImmutableMap.of("partition", "100")
+        ImmutableMap.of("partition", "100"),
+        new DimensionValueSetPartitionsSpec(List.of("tenant"))
     );
-    Mockito.when(task.getTuningConfig().getStreamingPartitionsSpec())
-           .thenReturn(new DimensionValueSetPartitionsSpec(List.of("tenant")));
 
     final DataSegment segment = createSingleSegment();
     final SegmentId lookupKey = segment.getId();
@@ -435,10 +433,9 @@ public class SeekableStreamIndexTaskRunnerTest
   {
     final TestSeekableStreamIndexTaskRunner runner = createRunner(
         ImmutableMap.of("partition", "0"),
-        ImmutableMap.of("partition", "100")
+        ImmutableMap.of("partition", "100"),
+        new DimensionValueSetPartitionsSpec(List.of("tenant"))
     );
-    Mockito.when(task.getTuningConfig().getStreamingPartitionsSpec())
-           .thenReturn(new DimensionValueSetPartitionsSpec(List.of("tenant")));
 
     // Two partitions in one interval: partition 0 was restored from disk across a restart, partition 1 created after.
     final List<DataSegment> sameIntervalPartitions = CreateDataSegments
@@ -480,10 +477,9 @@ public class SeekableStreamIndexTaskRunnerTest
   {
     final TestSeekableStreamIndexTaskRunner runner = createRunner(
         ImmutableMap.of("partition", "0"),
-        ImmutableMap.of("partition", "100")
+        ImmutableMap.of("partition", "100"),
+        new DimensionValueSetPartitionsSpec(List.of("tenant", "region"))
     );
-    Mockito.when(task.getTuningConfig().getStreamingPartitionsSpec())
-           .thenReturn(new DimensionValueSetPartitionsSpec(List.of("tenant", "region")));
 
     final DataSegment segment = createSingleSegment();
     final SegmentId lookupKey = segment.getId();
@@ -518,10 +514,9 @@ public class SeekableStreamIndexTaskRunnerTest
   {
     final TestSeekableStreamIndexTaskRunner runner = createRunner(
         ImmutableMap.of("partition", "0"),
-        ImmutableMap.of("partition", "100")
+        ImmutableMap.of("partition", "100"),
+        new DimensionValueSetPartitionsSpec(List.of("tenant"))
     );
-    Mockito.when(task.getTuningConfig().getStreamingPartitionsSpec())
-           .thenReturn(new DimensionValueSetPartitionsSpec(List.of("tenant")));
 
     final DataSegment segment = createSingleSegment();
     final SegmentId lookupKey = segment.getId();
@@ -549,10 +544,9 @@ public class SeekableStreamIndexTaskRunnerTest
   {
     final TestSeekableStreamIndexTaskRunner runner = createRunner(
         ImmutableMap.of("partition", "0"),
-        ImmutableMap.of("partition", "100")
+        ImmutableMap.of("partition", "100"),
+        new DimensionValueSetPartitionsSpec(List.of("tenant"))
     );
-    Mockito.when(task.getTuningConfig().getStreamingPartitionsSpec())
-           .thenReturn(new DimensionValueSetPartitionsSpec(List.of("tenant")));
 
     // No observe(...) call: nothing was recorded for this segment.
     final DataSegment annotated = runner.annotateSegmentWithPartitionDimensionValues(createSingleSegment());
@@ -571,11 +565,11 @@ public class SeekableStreamIndexTaskRunnerTest
   @Test
   public void testFeatureOffReturnsSegmentUnchanged() throws Exception
   {
+    // No streamingPartitionsSpec passed: the feature is off.
     final TestSeekableStreamIndexTaskRunner runner = createRunner(
         ImmutableMap.of("partition", "0"),
         ImmutableMap.of("partition", "100")
     );
-    Mockito.when(task.getTuningConfig().getStreamingPartitionsSpec()).thenReturn(null);
 
     final DataSegment segment = createSingleSegment();
     final DataSegment annotated = runner.annotateSegmentWithPartitionDimensionValues(segment);
@@ -589,10 +583,9 @@ public class SeekableStreamIndexTaskRunnerTest
   {
     final TestSeekableStreamIndexTaskRunner runner = createRunner(
         ImmutableMap.of("partition", "0"),
-        ImmutableMap.of("partition", "100")
+        ImmutableMap.of("partition", "100"),
+        new DimensionValueSetPartitionsSpec(List.of("tenant"), 3)
     );
-    Mockito.when(task.getTuningConfig().getStreamingPartitionsSpec())
-           .thenReturn(new DimensionValueSetPartitionsSpec(List.of("tenant"), 3));
 
     final DataSegment segment = createSingleSegment();
     observe(runner, segment.getId(), "tenant", "tenant_a", "tenant_b", "tenant_c");
@@ -612,10 +605,9 @@ public class SeekableStreamIndexTaskRunnerTest
   {
     final TestSeekableStreamIndexTaskRunner runner = createRunner(
         ImmutableMap.of("partition", "0"),
-        ImmutableMap.of("partition", "100")
+        ImmutableMap.of("partition", "100"),
+        new DimensionValueSetPartitionsSpec(List.of("tenant"), 2)
     );
-    Mockito.when(task.getTuningConfig().getStreamingPartitionsSpec())
-           .thenReturn(new DimensionValueSetPartitionsSpec(List.of("tenant"), 2));
 
     final DataSegment segment = createSingleSegment();
     observe(runner, segment.getId(), "tenant", "tenant_a", "tenant_b", "tenant_c");
@@ -635,10 +627,9 @@ public class SeekableStreamIndexTaskRunnerTest
   {
     final TestSeekableStreamIndexTaskRunner runner = createRunner(
         ImmutableMap.of("partition", "0"),
-        ImmutableMap.of("partition", "100")
+        ImmutableMap.of("partition", "100"),
+        new DimensionValueSetPartitionsSpec(List.of("tenant", "region"), 2)
     );
-    Mockito.when(task.getTuningConfig().getStreamingPartitionsSpec())
-           .thenReturn(new DimensionValueSetPartitionsSpec(List.of("tenant", "region"), 2));
 
     final DataSegment segment = createSingleSegment();
     // Each row sets both tracked dims (collect evaluates all configured dims per row). tenant sees 3 distinct values
@@ -667,10 +658,9 @@ public class SeekableStreamIndexTaskRunnerTest
   {
     final TestSeekableStreamIndexTaskRunner runner = createRunner(
         ImmutableMap.of("partition", "0"),
-        ImmutableMap.of("partition", "100")
+        ImmutableMap.of("partition", "100"),
+        new DimensionValueSetPartitionsSpec(List.of("tenant"), 2)
     );
-    Mockito.when(task.getTuningConfig().getStreamingPartitionsSpec())
-           .thenReturn(new DimensionValueSetPartitionsSpec(List.of("tenant"), 2));
 
     final DataSegment segment = createSingleSegment();
     observe(runner, segment.getId(), "tenant", "tenant_a", "tenant_b", null);
@@ -785,7 +775,16 @@ public class SeekableStreamIndexTaskRunnerTest
       Map<String, String> endOffsets
   )
   {
-    return createRunner(createDataSchema(), null, null, null, startOffsets, endOffsets);
+    return createRunner(startOffsets, endOffsets, null);
+  }
+
+  private TestSeekableStreamIndexTaskRunner createRunner(
+      Map<String, String> startOffsets,
+      Map<String, String> endOffsets,
+      @Nullable StreamingPartitionsSpec streamingPartitionsSpec
+  )
+  {
+    return createRunner(createDataSchema(), null, null, null, startOffsets, endOffsets, streamingPartitionsSpec);
   }
 
   private TestSeekableStreamIndexTaskRunner createRunnerWithMessageTimeBounds(
@@ -800,7 +799,8 @@ public class SeekableStreamIndexTaskRunnerTest
         minMessageTime,
         maxMessageTime,
         ImmutableMap.of(),
-        ImmutableMap.of()
+        ImmutableMap.of(),
+        null
     );
   }
 
@@ -810,7 +810,8 @@ public class SeekableStreamIndexTaskRunnerTest
       @Nullable DateTime minMessageTime,
       @Nullable DateTime maxMessageTime,
       Map<String, String> startOffsets,
-      Map<String, String> endOffsets
+      Map<String, String> endOffsets,
+      @Nullable StreamingPartitionsSpec streamingPartitionsSpec
   )
   {
     final SeekableStreamIndexTaskTuningConfig tuningConfig = Mockito.mock(SeekableStreamIndexTaskTuningConfig.class);
@@ -826,6 +827,7 @@ public class SeekableStreamIndexTaskRunnerTest
     );
 
     Mockito.when(tuningConfig.getIntermediateHandoffPeriod()).thenReturn(Period.minutes(1));
+    Mockito.when(tuningConfig.getStreamingPartitionsSpec()).thenReturn(streamingPartitionsSpec);
     Mockito.when(ioConfig.getRefreshRejectionPeriodsInMinutes()).thenReturn(refreshRejectionPeriodsInMinutes);
     Mockito.when(ioConfig.getMaximumMessageTime()).thenReturn(maxMessageTime);
     Mockito.when(ioConfig.getMinimumMessageTime()).thenReturn(minMessageTime);
