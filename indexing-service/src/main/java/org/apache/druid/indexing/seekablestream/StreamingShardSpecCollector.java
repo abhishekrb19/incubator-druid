@@ -24,6 +24,8 @@ import org.apache.druid.timeline.DataSegment;
 import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.timeline.partition.ShardSpec;
 
+import java.util.Collection;
+
 /**
  * Accumulates information from the rows a streaming task ingests and, at publish time, stamps each segment with a
  * prunable {@link ShardSpec} derived from that information, so the broker can prune the segment at query time without
@@ -43,7 +45,7 @@ import org.apache.druid.timeline.partition.ShardSpec;
  * thread — and may run concurrently with {@link #collect} for the same {@link SegmentId}. Implementations <b>must</b> be
  * safe under that race (the built-in implementation keys a {@code ConcurrentHashMap} by {@link SegmentId} with
  * {@code Collections.synchronizedSet} value sets, snapshotting each set under its own monitor before iterating).
- * {@link #onSegmentRestored} is called only at task startup, before any {@link #collect};
+ * {@link #onSegmentsRestored} is called only at task startup, before any {@link #collect};
  * {@link #onSegmentPublished} is called only from the publish-success callback.
  */
 public interface StreamingShardSpecCollector
@@ -55,16 +57,17 @@ public interface StreamingShardSpecCollector
   void collect(SegmentId segmentId, InputRow row);
 
   /**
-   * Notifies the collector that {@code segmentId} was restored from disk across a task restart. Such a segment's
+   * Notifies the collector that {@code segmentIds} were restored from disk across a task restart. Such segments'
    * pre-restart rows are not re-read, so the collected information is incomplete; to avoid wrongly pruning those rows,
-   * {@link #annotate} must return a non-pruning shard spec for it. Called only at task startup, before the run loop
+   * {@link #annotate} must return a non-pruning shard spec for them. The full restored set is known at once, so it is
+   * passed in a single call rather than one segment at a time. Called only at task startup, before the run loop
    * begins; idempotent.
    */
-  void onSegmentRestored(SegmentId segmentId);
+  void onSegmentsRestored(Collection<SegmentId> segmentIds);
 
   /**
    * Returns {@code segment} stamped with a shard spec derived from the information collected for it. When the segment
-   * was restored across a restart (see {@link #onSegmentRestored}) or nothing was collected for it, this returns a
+   * was restored across a restart (see {@link #onSegmentsRestored}) or nothing was collected for it, this returns a
    * non-pruning fallback shard spec.
    *
    * <p>Implementations <b>must</b> keep the shard-spec class uniform within a time interval: all segments handed to a

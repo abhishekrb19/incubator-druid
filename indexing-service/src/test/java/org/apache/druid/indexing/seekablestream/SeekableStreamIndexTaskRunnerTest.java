@@ -737,7 +737,7 @@ public class SeekableStreamIndexTaskRunnerTest
     Objects.requireNonNull(
         runner.getShardSpecCollector(),
         "streamingPartitionsSpec must be configured before marking restart-spanned segments"
-    ).onSegmentRestored(segmentId);
+    ).onSegmentsRestored(Collections.singletonList(segmentId));
   }
 
   private TaskToolbox createTaskToolbox()

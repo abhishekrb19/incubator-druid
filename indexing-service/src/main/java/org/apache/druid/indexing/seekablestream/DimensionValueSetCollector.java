@@ -28,6 +28,7 @@ import org.apache.druid.timeline.partition.DimensionValueSetShardSpec;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -45,7 +46,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>A {@code null} element denotes an observed null/missing value (kept distinct from {@code ""}) so that
  * {@code IS NULL} queries are not pruned.
  *
- * <p>Thread-safety follows the {@link StreamingShardSpecCollector} contract: {@link #observed} is a
+ * <p>Thread-safety follows the {@link StreamingShardSpecCollector} contract:
+ * {@link #observedPartitionDimValuesBySegment} is a
  * {@link ConcurrentHashMap} keyed by {@link SegmentId} whose value sets are {@link Collections#synchronizedSet} written
  * by the run loop ({@link #collect}) and snapshotted under their own monitor by the publish path ({@link #annotate}).
  */
@@ -69,12 +71,14 @@ public class DimensionValueSetCollector implements StreamingShardSpecCollector
    * {@link #onSegmentPublished}; a publish failure is terminal for the task, so any remaining entries are reclaimed at
    * task teardown.
    */
-  private final ConcurrentHashMap<SegmentId, Map<String, Set<String>>> observed = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<SegmentId, Map<String, Set<String>>> observedPartitionDimValuesBySegment =
+      new ConcurrentHashMap<>();
 
   /**
    * Segment identifiers restored from disk at startup (i.e. spanning a task restart). Their pre-restart rows are not
-   * re-read, so {@link #observed} would under-include values; to avoid wrongly pruning them, such segments are published
-   * with an empty-filter (non-pruning) {@link DimensionValueSetShardSpec} instead of one declaring observed values.
+   * re-read, so {@link #observedPartitionDimValuesBySegment} would under-include values; to avoid wrongly pruning them,
+   * such segments are published with an empty-filter (non-pruning) {@link DimensionValueSetShardSpec} instead of one
+   * declaring observed values.
    */
   private final Set<SegmentId> restartSpanned = Sets.newConcurrentHashSet();
 
@@ -90,7 +94,8 @@ public class DimensionValueSetCollector implements StreamingShardSpecCollector
     if (partitionDimensions.isEmpty()) {
       return;
     }
-    final Map<String, Set<String>> segValues = observed.computeIfAbsent(segmentId, k -> new ConcurrentHashMap<>());
+    final Map<String, Set<String>> segValues =
+        observedPartitionDimValuesBySegment.computeIfAbsent(segmentId, k -> new ConcurrentHashMap<>());
     for (String dim : partitionDimensions) {
       final Set<String> dimSet = segValues.computeIfAbsent(
           dim,
@@ -108,9 +113,17 @@ public class DimensionValueSetCollector implements StreamingShardSpecCollector
   }
 
   @Override
-  public void onSegmentRestored(SegmentId segmentId)
+  public void onSegmentsRestored(Collection<SegmentId> segmentIds)
   {
-    restartSpanned.add(segmentId);
+    if (segmentIds.isEmpty()) {
+      return;
+    }
+    restartSpanned.addAll(segmentIds);
+    log.warn(
+        "Disabling partition-filter pruning for %d segment(s) restored across a task restart: %s",
+        segmentIds.size(),
+        segmentIds
+    );
   }
 
   /**
@@ -125,7 +138,7 @@ public class DimensionValueSetCollector implements StreamingShardSpecCollector
   {
     final Map<String, List<String>> snapshotFilters = new HashMap<>();
     final SegmentId lookupKey = s.getId();
-    final Map<String, Set<String>> segObserved = observed.get(lookupKey);
+    final Map<String, Set<String>> segObserved = observedPartitionDimValuesBySegment.get(lookupKey);
     // Leave filters empty for restart-spanned segments: their pre-restart values can't be re-observed.
     if (!restartSpanned.contains(lookupKey) && segObserved != null) {
       for (String dim : partitionDimensions) {
@@ -172,7 +185,7 @@ public class DimensionValueSetCollector implements StreamingShardSpecCollector
   @Override
   public void onSegmentPublished(SegmentId segmentId)
   {
-    observed.remove(segmentId);
+    observedPartitionDimValuesBySegment.remove(segmentId);
     restartSpanned.remove(segmentId);
   }
 }

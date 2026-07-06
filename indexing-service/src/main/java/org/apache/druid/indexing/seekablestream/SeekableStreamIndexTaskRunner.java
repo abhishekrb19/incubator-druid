@@ -95,7 +95,6 @@ import org.apache.druid.segment.realtime.appenderator.StreamAppenderatorDriver;
 import org.apache.druid.server.security.AuthorizationUtils;
 import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.timeline.DataSegment;
-import org.apache.druid.timeline.SegmentId;
 import org.apache.druid.utils.CollectionUtils;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.joda.time.DateTime;
@@ -257,13 +256,11 @@ public abstract class SeekableStreamIndexTaskRunner<PartitionIdType, SequenceOff
   /**
    * Per-task collector that accumulates information from ingested rows and stamps each published segment with a prunable
    * shard spec, or {@code null} when {@link SeekableStreamIndexTaskTuningConfig#getStreamingPartitionsSpec()} is unset
-   * or has nothing to collect (feature off). Lazily created by {@link #getShardSpecCollector()} so it is available both
-   * during a run and to unit tests that exercise {@link #annotateSegmentWithPartitionDimensionValues} directly.
+   * or has nothing to collect (feature off). Created once in the constructor and shared across the run loop and the
+   * publish path (which runs on the future-completing thread via {@code MoreExecutors.directExecutor()}).
    */
   @Nullable
-  private volatile StreamingShardSpecCollector shardSpecCollector;
-  private volatile boolean shardSpecCollectorInitialized;
-  private final Object shardSpecCollectorLock = new Object();
+  private final StreamingShardSpecCollector shardSpecCollector;
 
   private volatile DateTime minMessageTime;
   private volatile DateTime maxMessageTime;
@@ -278,6 +275,8 @@ public abstract class SeekableStreamIndexTaskRunner<PartitionIdType, SequenceOff
     this.task = task;
     this.ioConfig = task.getIOConfig();
     this.tuningConfig = task.getTuningConfig();
+    final StreamingPartitionsSpec streamingPartitionsSpec = tuningConfig.getStreamingPartitionsSpec();
+    this.shardSpecCollector = streamingPartitionsSpec == null ? null : streamingPartitionsSpec.createCollector();
     this.inputRowSchema = InputRowSchemas.fromDataSchema(task.getDataSchema());
     this.inputFormat = ioConfig.getInputFormat();
     this.stream = ioConfig.getStartSequenceNumbers().getStream();
@@ -466,9 +465,6 @@ public abstract class SeekableStreamIndexTaskRunner<PartitionIdType, SequenceOff
     //milliseconds waited for created segments to be handed off
     long handoffWaitMs = 0L;
 
-    // Per-task collector for prunable streaming shard specs (null when the feature is off).
-    final StreamingShardSpecCollector shardSpecCollector = getShardSpecCollector();
-
     try (final RecordSupplier<PartitionIdType, SequenceOffsetType, RecordType> recordSupplier =
              task.newTaskRecordSupplier(toolbox)) {
       this.recordSupplier = recordSupplier;
@@ -513,21 +509,16 @@ public abstract class SeekableStreamIndexTaskRunner<PartitionIdType, SequenceOff
           }
       );
 
-      // Segments restored from disk span a task restart; their pre-restart values can't be re-observed, so mark them
-      // to fall back to a non-pruning shard spec at publish rather than stamping an incomplete filter.
+      // Segments restored from disk span a task restart; their pre-restart values can't be re-observed. Hand the
+      // restored set to the collector, which decides how restoration affects its shard specs (e.g. falling back to a
+      // non-pruning spec at publish rather than stamping an incomplete filter).
       if (shardSpecCollector != null) {
-        final List<SegmentId> restartSpanned = appenderator.getSegments()
-                                                            .stream()
-                                                            .map(SegmentIdWithShardSpec::asSegmentId)
-                                                            .collect(Collectors.toList());
-        restartSpanned.forEach(shardSpecCollector::onSegmentRestored);
-        if (!restartSpanned.isEmpty()) {
-          log.warn(
-              "Disabling partition-filter pruning for %d segment(s) restored across a task restart: %s",
-              restartSpanned.size(),
-              restartSpanned
-          );
-        }
+        shardSpecCollector.onSegmentsRestored(
+            appenderator.getSegments()
+                        .stream()
+                        .map(SegmentIdWithShardSpec::asSegmentId)
+                        .collect(Collectors.toList())
+        );
       }
 
       if (restoredMetadata == null) {
@@ -1040,24 +1031,13 @@ public abstract class SeekableStreamIndexTaskRunner<PartitionIdType, SequenceOff
   }
 
   /**
-   * Returns the per-task {@link StreamingShardSpecCollector}, lazily creating it from the configured
-   * {@link StreamingPartitionsSpec} on first use, or {@code null} when the feature is off (no spec, or nothing to
-   * collect). Idempotent and thread-safe: the run loop and the publish path (which runs on the future-completing thread
-   * via {@code MoreExecutors.directExecutor()}) share a single instance.
+   * Returns the per-task {@link StreamingShardSpecCollector} created in the constructor, or {@code null} when the
+   * feature is off (no {@link StreamingPartitionsSpec}, or nothing to collect).
    */
   @Nullable
   @VisibleForTesting
   StreamingShardSpecCollector getShardSpecCollector()
   {
-    if (!shardSpecCollectorInitialized) {
-      synchronized (shardSpecCollectorLock) {
-        if (!shardSpecCollectorInitialized) {
-          final StreamingPartitionsSpec spec = tuningConfig.getStreamingPartitionsSpec();
-          shardSpecCollector = spec == null ? null : spec.createCollector();
-          shardSpecCollectorInitialized = true;
-        }
-      }
-    }
     return shardSpecCollector;
   }
 
@@ -1068,8 +1048,7 @@ public abstract class SeekableStreamIndexTaskRunner<PartitionIdType, SequenceOff
   @VisibleForTesting
   DataSegment annotateSegmentWithPartitionDimensionValues(DataSegment s)
   {
-    final StreamingShardSpecCollector collector = getShardSpecCollector();
-    return collector == null ? s : collector.annotate(s);
+    return shardSpecCollector == null ? s : shardSpecCollector.annotate(s);
   }
 
   private void publishAndRegisterHandoff(SequenceMetadata<PartitionIdType, SequenceOffsetType> sequenceMetadata)
@@ -1120,7 +1099,6 @@ public abstract class SeekableStreamIndexTaskRunner<PartitionIdType, SequenceOff
             );
             log.infoSegments(publishedSegmentsAndCommitMetadata.getSegments(), "Published segments");
 
-            final StreamingShardSpecCollector shardSpecCollector = getShardSpecCollector();
             if (shardSpecCollector != null) {
               for (DataSegment segment : publishedSegmentsAndCommitMetadata.getSegments()) {
                 shardSpecCollector.onSegmentPublished(segment.getId());
