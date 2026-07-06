@@ -29,24 +29,13 @@ import java.util.Collection;
 /**
  * Accumulates information from the rows a streaming task ingests and, at publish time, stamps each segment with a
  * prunable {@link ShardSpec} derived from that information, so the broker can prune the segment at query time without
- * waiting for compaction. This is the pluggable "collect something per row, then build a shard spec" operation behind
- * {@link StreamingPartitionsSpec}: a strategy is added by writing a new {@link StreamingPartitionsSpec} subtype plus a
- * matching collector, without touching the task runner. The built-in implementation collects the distinct values of a
- * configured set of dimensions (see {@code DimensionValueSetCollector}); future strategies could instead collect
- * min/max ranges or build bloom filters for higher-cardinality columns.
+ * waiting for compaction. This is the pluggable strategy behind {@link StreamingPartitionsSpec}: a new strategy is added
+ * by writing a {@link StreamingPartitionsSpec} subtype plus a matching collector, without touching the task runner.
+ * {@code DimensionValueSetCollector} is the built-in implementation.
  *
  * <p>One instance is created per task run (via {@link StreamingPartitionsSpec#createCollector()}) and shared across all
- * of that task's segments.
- *
- * <h3>Thread-safety contract (required of all implementations)</h3>
- * The task's run loop calls {@link #collect} (writes) while the segment-publish path calls {@link #annotate} (reads).
- * The publish path runs the annotation inside a {@code Futures.transform(..., MoreExecutors.directExecutor())}
- * continuation, so {@link #annotate} executes on whichever thread completes the publish future — not a dedicated
- * thread — and may run concurrently with {@link #collect} for the same {@link SegmentId}. Implementations <b>must</b> be
- * safe under that race (the built-in implementation keys a {@code ConcurrentHashMap} by {@link SegmentId} with
- * {@code Collections.synchronizedSet} value sets, snapshotting each set under its own monitor before iterating).
- * {@link #onSegmentsRestored} is called only at task startup, before any {@link #collect};
- * {@link #onSegmentPublished} is called only from the publish-success callback.
+ * of that task's segments. Implementations <b>must</b> be thread-safe: {@link #collect} and {@link #annotate} can run
+ * concurrently for the same {@link SegmentId} (see {@link #annotate}).
  */
 public interface StreamingShardSpecCollector
 {
